@@ -1,0 +1,34 @@
+From 98babe1fd5c3a947d6a9adacd7a1199a8b2c8413 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Tue, 29 Nov 2022 15:15:15 +0100
+Subject: [PATCH 6/7] ov01a1s: Drop unused link_freq variable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Drop the unused link_freq variable, fixing this compiler warning:
+
+drivers/media/i2c/ov01a1s.c:994:13: warning: unused variable ‘link_freq’ [-Wunused-variable]
+  994 |         s64 link_freq;
+      |             ^~~~~~~~~
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/i2c/ov01a1s.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/media/i2c/ov01a1s.c b/drivers/media/i2c/ov01a1s.c
+index 1bc619971..ab4ff255d 100644
+--- a/drivers/media/i2c/ov01a1s.c
++++ b/drivers/media/i2c/ov01a1s.c
+@@ -988,7 +988,6 @@ static int ov01a1s_probe(struct i2c_client *client)
+ #if IS_ENABLED(CONFIG_INTEL_VSC)
+ 	struct vsc_mipi_config conf;
+ 	struct vsc_camera_status status;
+-	s64 link_freq;
+ #endif
+ 
+ 	ov01a1s = devm_kzalloc(&client->dev, sizeof(*ov01a1s), GFP_KERNEL);
+-- 
+2.39.1
+
