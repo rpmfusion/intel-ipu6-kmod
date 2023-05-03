@@ -1,0 +1,128 @@
+From 04baabda0d2dfe9be24372c3dd2099a52e15fbed Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Tue, 29 Nov 2022 23:37:50 +0100
+Subject: [PATCH 4/7] sensors: Make powerdown and reset signals active-low by
+ default
+
+The powerdown and reset functions should be set to 0, as in
+not-powered-down, not-in-reset when the sensor is turned on.
+
+Adjust the gpiod_set() value parameters for the powerdown_gpio
+and reset_gpio to !on to properly reflect this.
+
+Typical sensors however have a NRESET aka /RESET pin which needs
+to be driven low to put the device in reset and the have
+a powerup/enable pin rather then a powerdown pin. So at
+the physicical level the pins associated with the reset and
+powerdown functions need to be driven low to put the chip
+in reset / to power the chip down. Mark the pins as active-low
+in the added gpio-lookup table entries for these pin to
+reflect this.
+
+This double negation has 0 net effect, but it uses the GPIO
+subsystem functionality as intended (setting reset to 0
+on poweron makes lot more sense then setting it to 1 on poweron)
+and it aligns the use of these GPIOs with that of the mainline
+kernel allowing future use of the IPU6 driver with the
+mainline INT3472 driver without needing to patch the mainline
+kernel.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/i2c/hm11b1.c                                    | 4 ++--
+ drivers/media/i2c/ov01a1s.c                                   | 4 ++--
+ drivers/media/i2c/ov2740.c                                    | 2 +-
+ ...nt3472-support-independent-clock-and-LED-gpios-5.17+.patch | 4 ++--
+ patch/int3472-support-independent-clock-and-LED-gpios.patch   | 4 ++--
+ 5 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/media/i2c/hm11b1.c b/drivers/media/i2c/hm11b1.c
+index e14810bdd..652e8f177 100644
+--- a/drivers/media/i2c/hm11b1.c
++++ b/drivers/media/i2c/hm11b1.c
+@@ -511,8 +511,8 @@ static void hm11b1_set_power(struct hm11b1 *hm11b1, int on)
+ #if IS_ENABLED(CONFIG_INTEL_SKL_INT3472)
+ 	if (!(hm11b1->reset_gpio && hm11b1->powerdown_gpio))
+ 		return;
+-	gpiod_set_value_cansleep(hm11b1->reset_gpio, on);
+-	gpiod_set_value_cansleep(hm11b1->powerdown_gpio, on);
++	gpiod_set_value_cansleep(hm11b1->reset_gpio, !on);
++	gpiod_set_value_cansleep(hm11b1->powerdown_gpio, !on);
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 7)
+ 	gpiod_set_value_cansleep(hm11b1->clken_gpio, on);
+ #else
+diff --git a/drivers/media/i2c/ov01a1s.c b/drivers/media/i2c/ov01a1s.c
+index 628a1dd83..2ce81d04a 100644
+--- a/drivers/media/i2c/ov01a1s.c
++++ b/drivers/media/i2c/ov01a1s.c
+@@ -342,8 +342,8 @@ static void ov01a1s_set_power(struct ov01a1s *ov01a1s, int on)
+ #if IS_ENABLED(CONFIG_INTEL_SKL_INT3472)
+ 	if (!(ov01a1s->reset_gpio && ov01a1s->powerdown_gpio))
+ 		return;
+-	gpiod_set_value_cansleep(ov01a1s->reset_gpio, on);
+-	gpiod_set_value_cansleep(ov01a1s->powerdown_gpio, on);
++	gpiod_set_value_cansleep(ov01a1s->reset_gpio, !on);
++	gpiod_set_value_cansleep(ov01a1s->powerdown_gpio, !on);
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 7)
+ 	gpiod_set_value_cansleep(ov01a1s->clken_gpio, on);
+ #else
+diff --git a/drivers/media/i2c/ov2740.c b/drivers/media/i2c/ov2740.c
+index 67fb17e08..a8bb10177 100644
+--- a/drivers/media/i2c/ov2740.c
++++ b/drivers/media/i2c/ov2740.c
+@@ -596,7 +596,7 @@ static void ov2740_set_power(struct ov2740 *ov2740, int on)
+ {
+ 	if (!(ov2740->reset_gpio && ov2740->pled_gpio))
+ 		return;
+-	gpiod_set_value_cansleep(ov2740->reset_gpio, on);
++	gpiod_set_value_cansleep(ov2740->reset_gpio, !on);
+ 	gpiod_set_value_cansleep(ov2740->pled_gpio, on);
+ 	msleep(20);
+ }
+diff --git a/patch/int3472-support-independent-clock-and-LED-gpios-5.17+.patch b/patch/int3472-support-independent-clock-and-LED-gpios-5.17+.patch
+index 57373ac85..66ed770b6 100644
+--- a/patch/int3472-support-independent-clock-and-LED-gpios-5.17+.patch
++++ b/patch/int3472-support-independent-clock-and-LED-gpios-5.17+.patch
+@@ -65,7 +65,7 @@ index ed4c9d760757..f5857ec334fa 100644
+  	case INT3472_GPIO_TYPE_RESET:
+  		ret = skl_int3472_map_gpio_to_sensor(int3472, agpio, "reset",
+ -						     GPIO_ACTIVE_LOW);
+-+						     polarity);
+++						     polarity ^ GPIO_ACTIVE_LOW);
+  		if (ret)
+  			err_msg = "Failed to map reset pin to sensor\n";
+  
+@@ -73,7 +73,7 @@ index ed4c9d760757..f5857ec334fa 100644
+  	case INT3472_GPIO_TYPE_POWERDOWN:
+  		ret = skl_int3472_map_gpio_to_sensor(int3472, agpio, "powerdown",
+ -						     GPIO_ACTIVE_LOW);
+-+						     polarity);
+++						     polarity ^ GPIO_ACTIVE_LOW);
+  		if (ret)
+  			err_msg = "Failed to map powerdown pin to sensor\n";
+  
+diff --git a/patch/int3472-support-independent-clock-and-LED-gpios.patch b/patch/int3472-support-independent-clock-and-LED-gpios.patch
+index a2def0d76..df70ce4a7 100644
+--- a/patch/int3472-support-independent-clock-and-LED-gpios.patch
++++ b/patch/int3472-support-independent-clock-and-LED-gpios.patch
+@@ -65,7 +65,7 @@ index e59d79c7e82f..5cf6dd63d43f 100644
+  	case INT3472_GPIO_TYPE_RESET:
+  		ret = skl_int3472_map_gpio_to_sensor(int3472, agpio, "reset",
+ -						     GPIO_ACTIVE_LOW);
+-+						     polarity);
+++						     polarity ^ GPIO_ACTIVE_LOW);
+  		if (ret)
+  			err_msg = "Failed to map reset pin to sensor\n";
+  
+@@ -73,7 +73,7 @@ index e59d79c7e82f..5cf6dd63d43f 100644
+  	case INT3472_GPIO_TYPE_POWERDOWN:
+  		ret = skl_int3472_map_gpio_to_sensor(int3472, agpio, "powerdown",
+ -						     GPIO_ACTIVE_LOW);
+-+						     polarity);
+++						     polarity ^ GPIO_ACTIVE_LOW);
+  		if (ret)
+  			err_msg = "Failed to map powerdown pin to sensor\n";
+  
+-- 
+2.39.1
+

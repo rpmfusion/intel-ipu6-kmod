@@ -1,0 +1,75 @@
+From c37a9bec7d8d712c3dab63edaa1bb07f89f9c8ae Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Thu, 15 Dec 2022 16:00:31 +0100
+Subject: [PATCH 5/7] sensors: Make "pled" GPIO optional
+
+Starting with kernel 6.3 the mainline int3472 driver models the privacy
+LED device as a LED class device rather then as a GPIO.
+
+As part of these changed the v4l2-core subdev code in 6.3 turns
+the LED on/off on s_stream() on/off calls on the sensor v4l2-subdev,
+so sensor drivers don't have to take care of this themselves.
+
+Change the devm_gpiod_get() calls for the "pled" GPIO into
+devm_gpiod_get_optional() calls so that the sensor drivers
+can work with both older kernel (controlling the GPIO) and
+with newer kernels which don't have a "pled" GPIO.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/i2c/hm11b1.c  | 2 +-
+ drivers/media/i2c/ov01a1s.c | 2 +-
+ drivers/media/i2c/ov2740.c  | 4 +---
+ 3 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/media/i2c/hm11b1.c b/drivers/media/i2c/hm11b1.c
+index 652e8f177..6257f7987 100644
+--- a/drivers/media/i2c/hm11b1.c
++++ b/drivers/media/i2c/hm11b1.c
+@@ -1118,7 +1118,7 @@ static int hm11b1_parse_dt(struct hm11b1 *hm11b1)
+ 		return dev_err_probe(dev, PTR_ERR(hm11b1->clk), "getting clk\n");
+ #endif
+ 
+-	hm11b1->pled_gpio = devm_gpiod_get(dev, "pled", GPIOD_OUT_HIGH);
++	hm11b1->pled_gpio = devm_gpiod_get_optional(dev, "pled", GPIOD_OUT_HIGH);
+ 	ret = PTR_ERR_OR_ZERO(hm11b1->pled_gpio);
+ 	if (ret < 0) {
+ 		dev_err(dev, "error while getting pled gpio: %d\n", ret);
+diff --git a/drivers/media/i2c/ov01a1s.c b/drivers/media/i2c/ov01a1s.c
+index 2ce81d04a..1bc619971 100644
+--- a/drivers/media/i2c/ov01a1s.c
++++ b/drivers/media/i2c/ov01a1s.c
+@@ -970,7 +970,7 @@ static int ov01a1s_parse_dt(struct ov01a1s *ov01a1s)
+ 		return dev_err_probe(dev, PTR_ERR(ov01a1s->clk), "getting clk\n");
+ #endif
+ 
+-	ov01a1s->pled_gpio = devm_gpiod_get(dev, "pled", GPIOD_OUT_HIGH);
++	ov01a1s->pled_gpio = devm_gpiod_get_optional(dev, "pled", GPIOD_OUT_HIGH);
+ 	ret = PTR_ERR_OR_ZERO(ov01a1s->pled_gpio);
+ 	if (ret < 0) {
+ 		dev_err(dev, "error while getting pled gpio: %d\n", ret);
+diff --git a/drivers/media/i2c/ov2740.c b/drivers/media/i2c/ov2740.c
+index a8bb10177..08f284d4a 100644
+--- a/drivers/media/i2c/ov2740.c
++++ b/drivers/media/i2c/ov2740.c
+@@ -594,8 +594,6 @@ static u64 to_pixels_per_line(u32 hts, u32 f_index)
+ 
+ static void ov2740_set_power(struct ov2740 *ov2740, int on)
+ {
+-	if (!(ov2740->reset_gpio && ov2740->pled_gpio))
+-		return;
+ 	gpiod_set_value_cansleep(ov2740->reset_gpio, !on);
+ 	gpiod_set_value_cansleep(ov2740->pled_gpio, on);
+ 	msleep(20);
+@@ -633,7 +631,7 @@ static int ov2740_parse_dt(struct ov2740 *ov2740)
+ 		return ret;
+ 	}
+ 
+-	ov2740->pled_gpio = devm_gpiod_get(dev, "pled", GPIOD_OUT_HIGH);
++	ov2740->pled_gpio = devm_gpiod_get_optional(dev, "pled", GPIOD_OUT_HIGH);
+ 	ret = PTR_ERR_OR_ZERO(ov2740->pled_gpio);
+ 	if (ret < 0) {
+ 		dev_err(dev, "error while getting pled gpio: %d\n", ret);
+-- 
+2.39.1
+

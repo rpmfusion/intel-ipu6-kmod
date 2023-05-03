@@ -1,0 +1,169 @@
+From e12937494f09a1e21f2ad2ba71579bd0480d13fc Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Fri, 27 Jan 2023 12:04:00 +0100
+Subject: [PATCH 2/7] ipu6-psys: Fix possible deadlock with kernel 6.2
+
+With kernel 6.2 the following possible deadlock gets reported:
+
+[  765.679269] ======================================================
+[  765.679270] WARNING: possible circular locking dependency detected
+[  765.679271] 6.2.0-rc5+ #40 Tainted: G           O
+[  765.679272] ------------------------------------------------------
+[  765.679272] camerasrc0:src/6354 is trying to acquire lock:
+[  765.679273] ffff992aa6ad8158 (&mm->mmap_lock){++++}-{3:3}, at: ipu_dma_buf_map+0x16c/0x400 [intel_ipu6_psys]
+[  765.679281]
+               but task is already holding lock:
+[  765.679282] ffff992aa6059dc8 (reservation_ww_class_mutex){+.+.}-{3:3}, at: dma_buf_map_attachment_unlocked+0x3d/0x90
+[  765.679286]
+               which lock already depends on the new lock.
+
+[  765.679287]
+               the existing dependency chain (in reverse order) is:
+[  765.679287]
+               -> #1 (reservation_ww_class_mutex){+.+.}-{3:3}:
+[  765.679289]        __ww_mutex_lock.constprop.0+0xbc/0xfb0
+[  765.679292]        ww_mutex_lock_interruptible+0x38/0xa0
+[  765.679293]        vm_fault_cpu+0x32/0x1a0 [i915]
+[  765.679396]        __do_fault+0x30/0x160
+[  765.679399]        do_fault+0x2bf/0x440
+[  765.679400]        __handle_mm_fault+0x671/0xfb0
+[  765.679401]        handle_mm_fault+0x16b/0x410
+[  765.679403]        do_user_addr_fault+0x1e0/0x6b0
+[  765.679406]        exc_page_fault+0x7e/0x2b0
+[  765.679408]        asm_exc_page_fault+0x22/0x30
+[  765.679411]
+               -> #0 (&mm->mmap_lock){++++}-{3:3}:
+[  765.679412]        __lock_acquire+0x12fd/0x1fd0
+[  765.679415]        lock_acquire+0xbf/0x2b0
+[  765.679416]        down_read+0x3e/0x50
+[  765.679418]        ipu_dma_buf_map+0x16c/0x400 [intel_ipu6_psys]
+[  765.679423]        __map_dma_buf+0x1e/0x90
+[  765.679424]        dma_buf_map_attachment+0xc3/0x120
+[  765.679426]        dma_buf_map_attachment_unlocked+0x47/0x90
+[  765.679427]        ipu_psys_mapbuf_locked+0x116/0x430 [intel_ipu6_psys]
+[  765.679431]        ipu_psys_ioctl+0x1b1/0x4f0 [intel_ipu6_psys]
+[  765.679435]        __x64_sys_ioctl+0x8d/0xd0
+[  765.679436]        do_syscall_64+0x58/0x80
+[  765.679438]        entry_SYSCALL_64_after_hwframe+0x72/0xdc
+[  765.679440]
+               other info that might help us debug this:
+
+[  765.679441]  Possible unsafe locking scenario:
+
+[  765.679441]        CPU0                    CPU1
+[  765.679442]        ----                    ----
+[  765.679442]   lock(reservation_ww_class_mutex);
+[  765.679443]                                lock(&mm->mmap_lock);
+[  765.679444]                                lock(reservation_ww_class_mutex);
+[  765.679445]   lock(&mm->mmap_lock);
+[  765.679446]
+                *** DEADLOCK ***
+
+This is caused by ipu_psys_mapbuf_locked() calling
+dma_buf_map_attachment_unlocked() which takes reservation_ww_class_mutex
+and then calls back into ipu_dma_buf_map() which calls
+ipu_psys_get_userpages() which takes mm->mmap_lock.
+
+So the IPU6 code takes locks in the following order:
+
+1. lock(reservation_ww_class_mutex)
+2. lock(&mm->mmap_lock)
+
+But the core memory-management code takes these in the reverse
+oder causing an ABBA deadlock.
+
+Fix this by moving the ipu_psys_get_userpages() call to attach time (to
+ipu_dma_buf_attach()) like how other dmabuf code in the kernel does this.
+
+As a bonus this also allows properly propagating the error code from
+ipu_psys_get_userpages().
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/pci/intel/ipu-psys.c | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/media/pci/intel/ipu-psys.c b/drivers/media/pci/intel/ipu-psys.c
+index 676fce09c..4f93ba82d 100644
+--- a/drivers/media/pci/intel/ipu-psys.c
++++ b/drivers/media/pci/intel/ipu-psys.c
+@@ -296,6 +296,7 @@ static int ipu_dma_buf_attach(struct dma_buf *dbuf, struct device *dev,
+ {
+ 	struct ipu_psys_kbuffer *kbuf = dbuf->priv;
+ 	struct ipu_dma_buf_attach *ipu_attach;
++	int ret;
+ 
+ 	ipu_attach = kzalloc(sizeof(*ipu_attach), GFP_KERNEL);
+ 	if (!ipu_attach)
+@@ -307,6 +308,12 @@ static int ipu_dma_buf_attach(struct dma_buf *dbuf, struct device *dev,
+ 	ipu_attach->len = kbuf->len;
+ 	ipu_attach->userptr = kbuf->userptr;
+ 
++	ret = ipu_psys_get_userpages(ipu_attach);
++	if (ret) {
++		kfree(ipu_attach);
++		return ret;
++	}
++
+ 	attach->priv = ipu_attach;
+ 	return 0;
+ }
+@@ -316,6 +323,7 @@ static void ipu_dma_buf_detach(struct dma_buf *dbuf,
+ {
+ 	struct ipu_dma_buf_attach *ipu_attach = attach->priv;
+ 
++	ipu_psys_put_userpages(ipu_attach);
+ 	kfree(ipu_attach);
+ 	attach->priv = NULL;
+ }
+@@ -331,16 +339,11 @@ static struct sg_table *ipu_dma_buf_map(struct dma_buf_attachment *attach,
+ #endif
+ 	int ret;
+ 
+-	ret = ipu_psys_get_userpages(ipu_attach);
+-	if (ret)
+-		return NULL;
+-
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0)
+ 	dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+ 	ret = dma_map_sg_attrs(attach->dev, ipu_attach->sgt->sgl,
+ 			       ipu_attach->sgt->orig_nents, dir, &attrs);
+ 	if (!ret) {
+-		ipu_psys_put_userpages(ipu_attach);
+ 		dev_dbg(attach->dev, "buf map failed\n");
+ 
+ 		return ERR_PTR(-EIO);
+@@ -351,7 +354,6 @@ static struct sg_table *ipu_dma_buf_map(struct dma_buf_attachment *attach,
+ 	ret = dma_map_sg_attrs(attach->dev, ipu_attach->sgt->sgl,
+ 			       ipu_attach->sgt->orig_nents, dir, attrs);
+ 	if (!ret) {
+-		ipu_psys_put_userpages(ipu_attach);
+ 		dev_dbg(attach->dev, "buf map failed\n");
+ 
+ 		return ERR_PTR(-EIO);
+@@ -361,7 +363,6 @@ static struct sg_table *ipu_dma_buf_map(struct dma_buf_attachment *attach,
+ 	attrs = DMA_ATTR_SKIP_CPU_SYNC;
+ 	ret = dma_map_sgtable(attach->dev, ipu_attach->sgt, dir, attrs);
+ 	if (ret < 0) {
+-		ipu_psys_put_userpages(ipu_attach);
+ 		dev_dbg(attach->dev, "buf map failed\n");
+ 
+ 		return ERR_PTR(-EIO);
+@@ -381,14 +382,11 @@ static struct sg_table *ipu_dma_buf_map(struct dma_buf_attachment *attach,
+ static void ipu_dma_buf_unmap(struct dma_buf_attachment *attach,
+ 			      struct sg_table *sgt, enum dma_data_direction dir)
+ {
+-	struct ipu_dma_buf_attach *ipu_attach = attach->priv;
+-
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+ 	dma_unmap_sg(attach->dev, sgt->sgl, sgt->orig_nents, dir);
+ #else
+ 	dma_unmap_sgtable(attach->dev, sgt, dir, DMA_ATTR_SKIP_CPU_SYNC);
+ #endif
+-	ipu_psys_put_userpages(ipu_attach);
+ }
+ 
+ static int ipu_dma_buf_mmap(struct dma_buf *dbuf, struct vm_area_struct *vma)
+-- 
+2.39.1
+
