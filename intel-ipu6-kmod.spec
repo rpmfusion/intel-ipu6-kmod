@@ -3,12 +3,12 @@
 %global debug_package %{nil}
 %endif
 
-%global ipu6_commit f83b0747b297cc42325668aaf69471d89253b88e
-%global ipu6_commitdate 20230117
+%global ipu6_commit dfedab03f3856010d37968cb384696038c73c984
+%global ipu6_commitdate 20230220
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
-%global ivsc_commit 94ecb88b3ac238d9145ac16230d6e0779bb4fd32
-%global ivsc_commitdate 20230106
+%global ivsc_commit c8db12b907e2e455d4d5586e5812d1ae0eebd571
+%global ivsc_commitdate 20230510
 %global ivsc_shortcommit %(c=%{ivsc_commit}; echo ${c:0:7})
 
 %global prjname intel-ipu6
@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        3.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        4.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -25,14 +25,9 @@ Source1:        %{url}/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_s
 
 
 # Patches
-Patch10:        0001-Fix-dmabuf-errors-with-kernel-6.2.patch
-Patch11:        0002-ipu6-psys-Fix-possible-deadlock-with-kernel-6.2.patch
-Patch12:        0003-sensors-Use-clk-framework-instead-of-a-clken-GPIO.patch
-Patch13:        0004-sensors-Make-powerdown-and-reset-signals-active-low-.patch
-Patch14:        0005-sensors-Make-pled-GPIO-optional.patch
-Patch15:        0006-ov01a1s-Drop-unused-link_freq-variable.patch
-Patch16:        0007-Don-t-rename-the-already-registered-PCI-device.patch
-
+Patch10:        0001-cio2-bridge-Fix-compilation-with-kernel.patch
+Patch11:        0002-intel_ipu6_isys-Add-video_nr-module-parameter.patch
+Patch12:        0003-sensors-Use-clk-framework-instead-of-a-clke-GPIO.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -62,10 +57,6 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 %patch10 -p1
 %patch11 -p1
 %patch12 -p1
-%patch13 -p1
-%patch14 -p1
-%patch15 -p1
-%patch16 -p1
 )
 
 cp -Rp ivsc-driver-%{ivsc_commit}/backport-include ipu6-drivers-%{ipu6_commit}/
@@ -111,6 +102,10 @@ done
 
 
 %changelog
+* Wed May 10 2023 Kate Hsuan <hpa@redhat.com> - 0.0-4.20230220gitdfedab0
+- Updated ipu6-driver commit to dfedab03f3856010d37968cb384696038c73c984
+- Updated ivsc-driver commit to c8db12b907e2e455d4d5586e5812d1ae0eebd571
+
 * Tue Mar 28 2023 Kate Hsuan <hpa@redhat.com> - 0.0-3.20230117gitf83b074
 - Fix typo
 

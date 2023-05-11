@@ -1,0 +1,54 @@
+From 46688d874b61e4c3153b95f8c95e0943625b6e30 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Wed, 3 May 2023 10:07:38 +0200
+Subject: [PATCH] intel_ipu6_isys: Add video_nr module parameter
+
+Add a video_nr module parameter so that the isys /dev/video#
+node can be assigned a fixed number instead of taking the first
+available free number.
+
+Both Ubuntu and Fedora by default use the IPU6 camera stack
+together with v4l2loopback for compat with apps which expect
+a regular video4linux2 device.
+
+Most apps open /dev/video0 by default so we want that to be
+the v4l2loopback device. But currently if the ipu6-drivers
+load first they become /dev/video0.
+
+This new video_nr module parameter allows distros to
+specify a different fixed number for intel_ipu6_isys so that
+v4l2loopback becomes /dev/video0 independent of the probe
+ordering.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/pci/intel/ipu-isys-video.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/pci/intel/ipu-isys-video.c b/drivers/media/pci/intel/ipu-isys-video.c
+index 19c255b7bcda..a5e30f047fc4 100644
+--- a/drivers/media/pci/intel/ipu-isys-video.c
++++ b/drivers/media/pci/intel/ipu-isys-video.c
+@@ -38,6 +38,10 @@
+ /* use max resolution pixel rate by default */
+ #define DEFAULT_PIXEL_RATE	(360000000ULL * 2 * 4 / 10)
+ 
++static int video_nr = -1;
++module_param(video_nr, int, 0444);
++MODULE_PARM_DESC(video_nr, "video device number (-1=auto, 0=/dev/video0, etc.)");
++
+ const struct ipu_isys_pixelformat ipu_isys_pfmts_be_soc[] = {
+ 	{V4L2_PIX_FMT_Y10, 16, 10, 0, MEDIA_BUS_FMT_Y10_1X10,
+ 	 IPU_FW_ISYS_FRAME_FORMAT_RAW16},
+@@ -1877,9 +1881,9 @@ int ipu_isys_video_init(struct ipu_isys_video *av,
+ 	mutex_lock(&av->mutex);
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
+-	rval = video_register_device(&av->vdev, VFL_TYPE_GRABBER, -1);
++	rval = video_register_device(&av->vdev, VFL_TYPE_GRABBER, video_nr);
+ #else
+-	rval = video_register_device(&av->vdev, VFL_TYPE_VIDEO, -1);
++	rval = video_register_device(&av->vdev, VFL_TYPE_VIDEO, video_nr);
+ #endif
+ 	if (rval)
+ 		goto out_media_entity_cleanup;

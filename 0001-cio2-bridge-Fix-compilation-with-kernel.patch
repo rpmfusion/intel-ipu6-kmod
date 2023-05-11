@@ -1,0 +1,90 @@
+From c61b117487a720084f4a645f728eed9b953690fa Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Wed, 3 May 2023 10:01:23 +0200
+Subject: [PATCH] cio2-bridge: Fix compilation with kernel >= 6.3
+
+Fix cio2-bridge compilation with kernel 6.3 and later.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/pci/intel/cio2-bridge.c | 29 +++++++++++++++++++++++++++
+ drivers/media/pci/intel/cio2-bridge.h |  3 +++
+ 2 files changed, 32 insertions(+)
+
+diff --git a/drivers/media/pci/intel/cio2-bridge.c b/drivers/media/pci/intel/cio2-bridge.c
+index fe7175ddd4b4..526d0c018b66 100644
+--- a/drivers/media/pci/intel/cio2-bridge.c
++++ b/drivers/media/pci/intel/cio2-bridge.c
+@@ -293,13 +293,33 @@ static void cio2_bridge_unregister_sensors(struct cio2_bridge *bridge)
+ 
+ 	for (i = 0; i < bridge->n_sensors; i++) {
+ 		sensor = &bridge->sensors[i];
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
++		software_node_unregister_node_group(sensor->group);
++#else
+ 		software_node_unregister_nodes(sensor->swnodes);
++#endif
+ 		ACPI_FREE(sensor->pld);
+ 		acpi_dev_put(sensor->adev);
+ 		i2c_unregister_device(sensor->vcm_i2c_client);
+ 	}
+ }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
++static void cio2_bridge_init_swnode_group(struct cio2_sensor *sensor)
++{
++	struct software_node *nodes = sensor->swnodes;
++
++	sensor->group[SWNODE_SENSOR_HID] = &nodes[SWNODE_SENSOR_HID];
++	sensor->group[SWNODE_SENSOR_PORT] = &nodes[SWNODE_SENSOR_PORT];
++	sensor->group[SWNODE_SENSOR_ENDPOINT] = &nodes[SWNODE_SENSOR_ENDPOINT];
++	sensor->group[SWNODE_CIO2_PORT] = &nodes[SWNODE_CIO2_PORT];
++	sensor->group[SWNODE_CIO2_ENDPOINT] = &nodes[SWNODE_CIO2_ENDPOINT];
++	if (sensor->ssdb.vcmtype &&
++	    sensor->ssdb.vcmtype <= ARRAY_SIZE(cio2_vcm_types))
++		sensor->group[SWNODE_VCM] = &nodes[SWNODE_VCM];
++}
++#endif
++
+ static int cio2_bridge_connect_sensor(const struct cio2_sensor_config *cfg,
+ 				      struct cio2_bridge *bridge,
+ 				      struct pci_dev *cio2)
+@@ -352,7 +372,12 @@ static int cio2_bridge_connect_sensor(const struct cio2_sensor_config *cfg,
+ 		cio2_bridge_create_fwnode_properties(sensor, bridge, cfg);
+ 		cio2_bridge_create_connection_swnodes(bridge, sensor);
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
++		cio2_bridge_init_swnode_group(sensor);
++		software_node_register_node_group(sensor->group);
++#else
+ 		ret = software_node_register_nodes(sensor->swnodes);
++#endif
+ 		if (ret)
+ 			goto err_free_pld;
+ 
+@@ -379,7 +404,11 @@ static int cio2_bridge_connect_sensor(const struct cio2_sensor_config *cfg,
+ 	return 0;
+ 
+ err_free_swnodes:
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
++	software_node_unregister_node_group(sensor->group);
++#else
+ 	software_node_unregister_nodes(sensor->swnodes);
++#endif
+ err_free_pld:
+ 	ACPI_FREE(sensor->pld);
+ err_put_adev:
+diff --git a/drivers/media/pci/intel/cio2-bridge.h b/drivers/media/pci/intel/cio2-bridge.h
+index a0c99ba8f700..77d76dde9b0b 100644
+--- a/drivers/media/pci/intel/cio2-bridge.h
++++ b/drivers/media/pci/intel/cio2-bridge.h
+@@ -121,6 +121,9 @@ struct cio2_sensor {
+ 
+ 	/* SWNODE_COUNT + 1 for terminating empty node */
+ 	struct software_node swnodes[SWNODE_COUNT + 1];
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
++	const struct software_node *group[SWNODE_COUNT + 1];
++#endif
+ 	struct cio2_node_names node_names;
+ 
+ 	struct cio2_sensor_ssdb ssdb;
