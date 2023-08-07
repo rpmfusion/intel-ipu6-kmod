@@ -3,12 +3,12 @@
 %global debug_package %{nil}
 %endif
 
-%global ipu6_commit dfedab03f3856010d37968cb384696038c73c984
-%global ipu6_commitdate 20230220
+%global ipu6_commit 8e410803b5d31c2c5bf32961f786d205ba6acc5d
+%global ipu6_commitdate 20230622
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
-%global ivsc_commit c8db12b907e2e455d4d5586e5812d1ae0eebd571
-%global ivsc_commitdate 20230510
+%global ivsc_commit cce4377f1539f3e7e8d8b45fbe23e87828ed1deb
+%global ivsc_commitdate 20230621
 %global ivsc_shortcommit %(c=%{ivsc_commit}; echo ${c:0:7})
 
 %global prjname intel-ipu6
@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        4.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        5.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -25,9 +25,6 @@ Source1:        %{url}/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_s
 
 
 # Patches
-Patch10:        0001-cio2-bridge-Fix-compilation-with-kernel.patch
-Patch11:        0002-intel_ipu6_isys-Add-video_nr-module-parameter.patch
-Patch12:        0003-sensors-Use-clk-framework-instead-of-a-clke-GPIO.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -53,11 +50,6 @@ This package contains the kmod module for %{prjname}.
 kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
 
 %setup -q -c -a 1
-(cd ipu6-drivers-%{ipu6_commit}
-%patch10 -p1
-%patch11 -p1
-%patch12 -p1
-)
 
 cp -Rp ivsc-driver-%{ivsc_commit}/backport-include ipu6-drivers-%{ipu6_commit}/
 cp -Rp ivsc-driver-%{ivsc_commit}/drivers ipu6-drivers-%{ipu6_commit}/
@@ -102,6 +94,10 @@ done
 
 
 %changelog
+* Mon Aug 7 2023 Kate Hsuan <hpa@redhat.com> - 0.0-5.20230622git8e41080
+- Updated ipu6-driver to commit 8e410803b5d31c2c5bf32961f786d205ba6acc5d
+- Updated ivsc-driver to commit cce4377f1539f3e7e8d8b45fbe23e87828ed1deb
+
 * Wed May 10 2023 Kate Hsuan <hpa@redhat.com> - 0.0-4.20230220gitdfedab0
 - Updated ipu6-driver commit to dfedab03f3856010d37968cb384696038c73c984
 - Updated ivsc-driver commit to c8db12b907e2e455d4d5586e5812d1ae0eebd571
