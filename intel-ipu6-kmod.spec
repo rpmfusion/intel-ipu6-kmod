@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        6.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        7.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -25,6 +25,7 @@ Source1:        %{url}/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_s
 
 
 # Patches
+Patch10:        0001-ipu-psys-Fix-compilation-with-kernels-6.5.0.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -50,6 +51,9 @@ This package contains the kmod module for %{prjname}.
 kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null
 
 %setup -q -c -a 1
+(cd ipu6-drivers-%{ipu6_commit}
+%patch10 -p1
+)
 
 cp -Rp ivsc-driver-%{ivsc_commit}/backport-include ipu6-drivers-%{ipu6_commit}/
 cp -Rp ivsc-driver-%{ivsc_commit}/drivers ipu6-drivers-%{ipu6_commit}/
@@ -94,6 +98,9 @@ done
 
 
 %changelog
+* Tue Aug 29 2023 Kate Hsuan <hpa@redhat.com> - 0.0-7.20230622git8e41080
+- Support for 6.5 kernel
+
 * Mon Aug 7 2023 Kate Hsuan <hpa@redhat.com> - 0.0-6.20230622git8e41080
 - Updated ipu6-driver to commit 8e410803b5d31c2c5bf32961f786d205ba6acc5d
 - Updated ivsc-driver to commit cce4377f1539f3e7e8d8b45fbe23e87828ed1deb
