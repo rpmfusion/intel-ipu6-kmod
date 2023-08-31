@@ -1,0 +1,207 @@
+From 931ceecc44e2aec6e703cc1ecd1a281114678756 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Mon, 28 Aug 2023 17:05:16 +0200
+Subject: [PATCH] ipu6: Fix compilation with kernels >= 6.6.0
+
+Kernel 6.6 has made some significant changes to how v4l2-async
+(sub)dev registration works. Adjust the code accordingly.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/pci/intel/ipu-isys.c           | 78 +++++++++++++++++++-
+ drivers/media/pci/intel/ipu6/ipu6-isys-phy.c | 14 +++-
+ include/media/ipu-isys.h                     |  5 ++
+ 3 files changed, 94 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/pci/intel/ipu-isys.c b/drivers/media/pci/intel/ipu-isys.c
+index 5cab1bb1b68c..de68e3a381e8 100644
+--- a/drivers/media/pci/intel/ipu-isys.c
++++ b/drivers/media/pci/intel/ipu-isys.c
+@@ -725,7 +725,11 @@ static int isys_iwake_watermark_cleanup(struct ipu_isys *isys)
+ /* The .bound() notifier callback when a match is found */
+ static int isys_notifier_bound(struct v4l2_async_notifier *notifier,
+ 			       struct v4l2_subdev *sd,
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 			       struct v4l2_async_subdev *asd)
++#else
++			       struct v4l2_async_connection *asd)
++#endif
+ {
+ 	struct ipu_isys *isys = container_of(notifier,
+ 					struct ipu_isys, notifier);
+@@ -741,7 +745,11 @@ static int isys_notifier_bound(struct v4l2_async_notifier *notifier,
+ 
+ static void isys_notifier_unbind(struct v4l2_async_notifier *notifier,
+ 				 struct v4l2_subdev *sd,
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 				 struct v4l2_async_subdev *asd)
++#else
++				 struct v4l2_async_connection *asd)
++#endif
+ {
+ 	struct ipu_isys *isys = container_of(notifier,
+ 					struct ipu_isys, notifier);
+@@ -765,6 +773,7 @@ static const struct v4l2_async_notifier_operations isys_async_ops = {
+ 	.complete = isys_notifier_complete,
+ };
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ static int isys_fwnode_parse(struct device *dev,
+ 			     struct v4l2_fwnode_endpoint *vep,
+ 			     struct v4l2_async_subdev *asd)
+@@ -777,6 +786,7 @@ static int isys_fwnode_parse(struct device *dev,
+ 
+ 	return 0;
+ }
++#endif
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0) && LINUX_VERSION_CODE != KERNEL_VERSION(5, 15, 71)
+ static int isys_notifier_init(struct ipu_isys *isys)
+@@ -819,7 +829,7 @@ static void isys_notifier_cleanup(struct ipu_isys *isys)
+ 	v4l2_async_notifier_unregister(&isys->notifier);
+ 	v4l2_async_notifier_cleanup(&isys->notifier);
+ }
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ static int isys_notifier_init(struct ipu_isys *isys)
+ {
+ 	struct ipu_device *isp = isys->adev->isp;
+@@ -852,7 +862,73 @@ static int isys_notifier_init(struct ipu_isys *isys)
+ 
+ 	return ret;
+ }
++#else
++static int isys_notifier_init(struct ipu_isys *isys)
++{
++	const struct ipu_isys_internal_csi2_pdata *csi2 =
++	    &isys->pdata->ipdata->csi2;
++	struct ipu_device *isp = isys->adev->isp;
++	struct device *dev = &isp->pdev->dev;
++	unsigned int i;
++	int ret;
++
++	v4l2_async_nf_init(&isys->notifier, &isys->v4l2_dev);
++
++	for (i = 0; i < csi2->nports; i++) {
++		struct v4l2_fwnode_endpoint vep = {
++			.bus_type = V4L2_MBUS_CSI2_DPHY
++		};
++		struct sensor_async_subdev *s_asd;
++		struct fwnode_handle *ep;
++
++		ep = fwnode_graph_get_endpoint_by_id(dev_fwnode(dev), i, 0,
++						FWNODE_GRAPH_ENDPOINT_NEXT);
++		if (!ep)
++			continue;
++
++		ret = v4l2_fwnode_endpoint_parse(ep, &vep);
++		if (ret)
++			goto err_parse;
++
++		s_asd = v4l2_async_nf_add_fwnode_remote(&isys->notifier, ep,
++							struct
++							sensor_async_subdev);
++		if (IS_ERR(s_asd)) {
++			ret = PTR_ERR(s_asd);
++			goto err_parse;
++		}
++
++		s_asd->csi2.port = vep.base.port;
++		s_asd->csi2.nlanes = vep.bus.mipi_csi2.num_data_lanes;
++
++		fwnode_handle_put(ep);
++
++		continue;
++
++err_parse:
++		fwnode_handle_put(ep);
++		return ret;
++	}
++
++	if (list_empty(&isys->notifier.waiting_list)) {
++		/* isys probe could continue with async subdevs missing */
++		dev_warn(&isys->adev->dev, "no subdev found in graph\n");
++		return 0;
++	}
++
++	isys->notifier.ops = &isys_async_ops;
++	ret = v4l2_async_nf_register(&isys->notifier);
++	if (ret) {
++		dev_err(&isys->adev->dev,
++			"failed to register async notifier : %d\n", ret);
++		v4l2_async_nf_cleanup(&isys->notifier);
++	}
++
++	return ret;
++}
++#endif
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0) || LINUX_VERSION_CODE == KERNEL_VERSION(5, 15, 71)
+ static void isys_notifier_cleanup(struct ipu_isys *isys)
+ {
+ 	v4l2_async_nf_unregister(&isys->notifier);
+diff --git a/drivers/media/pci/intel/ipu6/ipu6-isys-phy.c b/drivers/media/pci/intel/ipu6/ipu6-isys-phy.c
+index c26780106c78..d2f4f74b67ee 100644
+--- a/drivers/media/pci/intel/ipu6/ipu6-isys-phy.c
++++ b/drivers/media/pci/intel/ipu6/ipu6-isys-phy.c
+@@ -504,11 +504,16 @@ int ipu6_isys_phy_common_init(struct ipu_isys *isys)
+ 	struct ipu_bus_device *adev = to_ipu_bus_device(&isys->adev->dev);
+ 	struct ipu_device *isp = adev->isp;
+ 	void __iomem *isp_base = isp->base;
+-	struct v4l2_async_subdev *asd;
+ 	struct sensor_async_subdev *s_asd;
+ 	unsigned int i;
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
++	struct v4l2_async_subdev *asd;
+ 	list_for_each_entry(asd, &isys->notifier.asd_list, asd_list) {
++#else
++	struct v4l2_async_connection *asd;
++	list_for_each_entry(asd, &isys->notifier.done_list, asc_entry) {
++#endif
+ 		s_asd = container_of(asd, struct sensor_async_subdev, asd);
+ 		phy_id = s_asd->csi2.port / 4;
+ 		phy_base = isp_base + IPU6_ISYS_PHY_BASE(phy_id);
+@@ -562,12 +567,17 @@ int ipu6_isys_phy_config(struct ipu_isys *isys)
+ 	struct ipu_device *isp = adev->isp;
+ 	void __iomem *isp_base = isp->base;
+ 	const struct phy_reg **phy_config_regs;
+-	struct v4l2_async_subdev *asd;
+ 	struct sensor_async_subdev *s_asd;
+ 	struct ipu_isys_csi2_config cfg;
+ 	int i;
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
++	struct v4l2_async_subdev *asd;
+ 	list_for_each_entry(asd, &isys->notifier.asd_list, asd_list) {
++#else
++	struct v4l2_async_connection *asd;
++	list_for_each_entry(asd, &isys->notifier.done_list, asc_entry) {
++#endif
+ 		s_asd = container_of(asd, struct sensor_async_subdev, asd);
+ 		cfg.port = s_asd->csi2.port;
+ 		cfg.nlanes = s_asd->csi2.nlanes;
+diff --git a/include/media/ipu-isys.h b/include/media/ipu-isys.h
+index b75febf80fc2..0b0caab1b10f 100644
+--- a/include/media/ipu-isys.h
++++ b/include/media/ipu-isys.h
+@@ -6,6 +6,7 @@
+ 
+ #include <linux/i2c.h>
+ #include <linux/clkdev.h>
++#include <linux/version.h>
+ #include <media/v4l2-async.h>
+ 
+ #define IPU_ISYS_MAX_CSI2_LANES		4
+@@ -37,7 +38,11 @@ struct ipu_isys_subdev_pdata {
+ };
+ 
+ struct sensor_async_subdev {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	struct v4l2_async_subdev asd;
++#else
++	struct v4l2_async_connection asd;
++#endif
+ 	struct ipu_isys_csi2_config csi2;
+ };
+ 
