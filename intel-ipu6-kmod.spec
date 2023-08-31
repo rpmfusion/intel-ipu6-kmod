@@ -100,7 +100,7 @@ done
 
 
 %changelog
-* Tue Aug 29 2023 Kate Hsuan <hpa@redhat.com> - 0.0-8.20230622git8e41080
+* Thu Aug 31 2023 Kate Hsuan <hpa@redhat.com> - 0.0-8.20230622git8e41080
 - Support for 6.6 kernel
 
 * Tue Aug 29 2023 Kate Hsuan <hpa@redhat.com> - 0.0-7.20230622git8e41080
