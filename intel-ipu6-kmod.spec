@@ -7,8 +7,8 @@
 %global ipu6_commitdate 20230622
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
-%global ivsc_commit cce4377f1539f3e7e8d8b45fbe23e87828ed1deb
-%global ivsc_commitdate 20230621
+%global ivsc_commit e8ea8b825217091fa91c9b3cb68cee4101d416e2
+%global ivsc_commitdate 20231009
 %global ivsc_shortcommit %(c=%{ivsc_commit}; echo ${c:0:7})
 
 %global prjname intel-ipu6
@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        8.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        9.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -100,6 +100,11 @@ done
 
 
 %changelog
+* Tue Oct 10 2023 Hans de Goede <hdegoede@redhat.com> - 0.0-9.20230622git8e41080
+- Updated ivsc-driver to commit e8ea8b825217091fa91c9b3cb68cee4101d416e2
+- This fixes the camera not working on some Dell laptops
+- Update patch to fix building against 6.6 kernels
+
 * Thu Aug 31 2023 Kate Hsuan <hpa@redhat.com> - 0.0-8.20230622git8e41080
 - Support for 6.6 kernel
 
