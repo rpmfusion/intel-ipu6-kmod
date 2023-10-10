@@ -7,8 +7,8 @@
 %global ipu6_commitdate 20230622
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
-%global ivsc_commit cce4377f1539f3e7e8d8b45fbe23e87828ed1deb
-%global ivsc_commitdate 20230621
+%global ivsc_commit e8ea8b825217091fa91c9b3cb68cee4101d416e2
+%global ivsc_commitdate 20231009
 %global ivsc_shortcommit %(c=%{ivsc_commit}; echo ${c:0:7})
 
 %global prjname intel-ipu6
@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        7.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        9.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -100,15 +100,23 @@ done
 
 
 %changelog
-* Thu Aug 31 2023 Kate Hsuan <hpa@redhat.com> - 0.0-7.20230622git8e41080
+* Tue Oct 10 2023 Hans de Goede <hdegoede@redhat.com> - 0.0-9.20230622git8e41080
+- Updated ivsc-driver to commit e8ea8b825217091fa91c9b3cb68cee4101d416e2
+- This fixes the camera not working on some Dell laptops
+- Update patch to fix building against 6.6 kernels
+
+* Thu Aug 31 2023 Kate Hsuan <hpa@redhat.com> - 0.0-8.20230622git8e41080
 - Support for 6.6 kernel
 
-* Tue Aug 29 2023 Kate Hsuan <hpa@redhat.com> - 0.0-6.20230622git8e41080
+* Tue Aug 29 2023 Kate Hsuan <hpa@redhat.com> - 0.0-7.20230622git8e41080
 - Support for 6.5 kernel
 
-* Mon Aug 7 2023 Kate Hsuan <hpa@redhat.com> - 0.0-5.20230622git8e41080
+* Mon Aug 7 2023 Kate Hsuan <hpa@redhat.com> - 0.0-6.20230622git8e41080
 - Updated ipu6-driver to commit 8e410803b5d31c2c5bf32961f786d205ba6acc5d
 - Updated ivsc-driver to commit cce4377f1539f3e7e8d8b45fbe23e87828ed1deb
+
+* Thu Aug 03 2023 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-5.20230220gitdfedab0
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
 
 * Wed May 10 2023 Kate Hsuan <hpa@redhat.com> - 0.0-4.20230220gitdfedab0
 - Updated ipu6-driver commit to dfedab03f3856010d37968cb384696038c73c984
