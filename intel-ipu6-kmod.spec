@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        9.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        10.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -27,6 +27,7 @@ Source1:        %{url}/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_s
 # Patches
 Patch10:        0001-ipu-psys-Fix-compilation-with-kernels-6.5.0.patch
 Patch11:        0001-ipu6-Fix-compilation-with-kernels-6.6.0.patch
+Patch12:        0001-spi-vsc-Call-acpi_dev_clear_dependencies.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -55,6 +56,10 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 (cd ipu6-drivers-%{ipu6_commit}
 %patch10 -p1
 %patch11 -p1
+)
+
+(cd ivsc-driver-%{ivsc_commit}
+%patch12 -p1
 )
 
 cp -Rp ivsc-driver-%{ivsc_commit}/backport-include ipu6-drivers-%{ipu6_commit}/
@@ -100,6 +105,10 @@ done
 
 
 %changelog
+* Sat Nov  4 2023 Hans de Goede <hdegoede@redhat.com> - 0.0-10.20230622git8e41080
+- Add "spi_vsc: Call acpi_dev_clear_dependencies()" patch to fix laptops
+  with iVSC chip no longer working with 6.6 kernels
+
 * Tue Oct 10 2023 Hans de Goede <hdegoede@redhat.com> - 0.0-9.20230622git8e41080
 - Updated ivsc-driver to commit e8ea8b825217091fa91c9b3cb68cee4101d416e2
 - This fixes the camera not working on some Dell laptops
