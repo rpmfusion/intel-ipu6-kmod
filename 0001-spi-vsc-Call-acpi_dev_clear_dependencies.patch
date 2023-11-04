@@ -1,0 +1,40 @@
+From 02c2eb5c3a1f25edd80f36f64b1eb8564421a762 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Thu, 2 Nov 2023 13:15:17 +0100
+Subject: [PATCH] spi-vsc: Call acpi_dev_clear_dependencies()
+
+Since mainline kernel commit 7f6fd06d34f4 ("ACPI: scan: Defer enumeration
+of devices with a _DEP pointing to IVSC device") the i2c-client for
+sensors with an ACPI _DEP on the iVSC will no longer get instantiated
+until acpi_dev_clear_dependencies() is called for that _DEP.
+
+Make get_sensor_name() which already looks-up a reference to
+the correct adev call acpi_dev_clear_dependencies(). For the out of
+tree version of the iVSC drivers when acpi_dev_clear_dependencies()
+is called exactly does not matter since sensor drivers explicitly
+call vsc_acquire_camera_sensor() before probing.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/misc/mei/spi-vsc.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/misc/mei/spi-vsc.c b/drivers/misc/mei/spi-vsc.c
+index fb2c310..459125e 100644
+--- a/drivers/misc/mei/spi-vsc.c
++++ b/drivers/misc/mei/spi-vsc.c
+@@ -123,6 +123,11 @@ static int get_sensor_name(struct mei_device *dev)
+ 		*c = tolower(*c);
+ 
+ 	ACPI_FREE(buffer.pointer);
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0)
++	acpi_dev_clear_dependencies(adev);
++#endif
++
+ 	return 0;
+ }
+ 
+-- 
+2.41.0
+
