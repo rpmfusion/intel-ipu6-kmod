@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        10.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        11.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -105,6 +105,9 @@ done
 
 
 %changelog
+* Sun Feb 04 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-11.20230622git8e41080
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
+
 * Sat Nov  4 2023 Hans de Goede <hdegoede@redhat.com> - 0.0-10.20230622git8e41080
 - Add "spi_vsc: Call acpi_dev_clear_dependencies()" patch to fix laptops
   with iVSC chip no longer working with 6.6 kernels
