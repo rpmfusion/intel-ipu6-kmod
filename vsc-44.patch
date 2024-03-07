@@ -1,0 +1,124 @@
+From 368285d0401703c2243b2c122e2d80c49cb2ae83 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Tue, 5 Mar 2024 21:44:24 +0100
+Subject: [PATCH 1/2] ljca: s/strlcpy/strcpy/
+
+kernels >= 6.8 no longer have strlcpy use strscpy instead,
+strscpy has been available since at least kernel 4.8 .
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/mfd/ljca.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/mfd/ljca.c b/drivers/mfd/ljca.c
+index 9a416d3..ec03417 100644
+--- a/drivers/mfd/ljca.c
++++ b/drivers/mfd/ljca.c
+@@ -221,7 +221,7 @@ static int try_match_acpi_hid(struct acpi_device *child, char **hids, int hids_n
+ 	int i;
+ 
+ 	for (i = 0; i < hids_num; i++) {
+-		strlcpy(ids[0].id, hids[i], sizeof(ids[0].id));
++		strscpy(ids[0].id, hids[i], sizeof(ids[0].id));
+ 		if (!acpi_match_device_ids(child, ids))
+ 			return i;
+ 	}
+
+From 0e1aa89783c7c17dcf8dbe184a286eb787f783d0 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Tue, 5 Mar 2024 21:46:20 +0100
+Subject: [PATCH 2/2] ljca: Fix 6.8 compiler warnings
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+1. Fix compiler warnings from the newly enabled (in 6.8) -Wmissing-prototypes
+warning option.
+
+2. Fix following warning caused by changes in struct spi_device:
+drivers/spi/spi-ljca.c:216:39: warning: format ‘%d’ expects argument of type ‘int’, but argument 4 has type ‘u8 *’ {aka ‘unsigned char *’} [-Wformat=]
+  216 |         dev_dbg(&ljca_spi->pdev->dev, "cs %d\n", spi->chip_select);
+Rather then adding a ifdef on the kernel version for this just
+drop the dev_dbg().
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/gpio/gpio-ljca.c    | 4 ++--
+ drivers/mfd/ljca.c          | 2 +-
+ drivers/misc/ivsc/mei_ace.c | 6 +++---
+ drivers/spi/spi-ljca.c      | 4 ----
+ 4 files changed, 6 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpio/gpio-ljca.c b/drivers/gpio/gpio-ljca.c
+index 0041d26..bea39b6 100644
+--- a/drivers/gpio/gpio-ljca.c
++++ b/drivers/gpio/gpio-ljca.c
+@@ -253,8 +253,8 @@ static void ljca_gpio_async(struct work_struct *work)
+ 	}
+ }
+ 
+-void ljca_gpio_event_cb(struct platform_device *pdev, u8 cmd,
+-			const void *evt_data, int len)
++static void ljca_gpio_event_cb(struct platform_device *pdev, u8 cmd,
++			       const void *evt_data, int len)
+ {
+ 	const struct gpio_packet *packet = evt_data;
+ 	struct ljca_gpio_dev *ljca_gpio = platform_get_drvdata(pdev);
+diff --git a/drivers/mfd/ljca.c b/drivers/mfd/ljca.c
+index ec03417..2de6faa 100644
+--- a/drivers/mfd/ljca.c
++++ b/drivers/mfd/ljca.c
+@@ -320,7 +320,7 @@ static bool ljca_validate(void *data, u32 data_len)
+ 	return (header->len + sizeof(*header) == data_len);
+ }
+ 
+-void ljca_dump(struct ljca_dev *ljca, void *buf, int len)
++static void ljca_dump(struct ljca_dev *ljca, void *buf, int len)
+ {
+ 	int i;
+ 	u8 tmp[256] = { 0 };
+diff --git a/drivers/misc/ivsc/mei_ace.c b/drivers/misc/ivsc/mei_ace.c
+index 025fd7d..415a8e4 100644
+--- a/drivers/misc/ivsc/mei_ace.c
++++ b/drivers/misc/ivsc/mei_ace.c
+@@ -311,21 +311,21 @@ static int set_camera_ownership(struct mei_ace *ace,
+ 	return ret;
+ }
+ 
+-int ipu_own_camera(void *ace, struct camera_status *status)
++static int ipu_own_camera(void *ace, struct camera_status *status)
+ {
+ 	struct mei_ace *p_ace = (struct mei_ace *)ace;
+ 
+ 	return set_camera_ownership(p_ace, IPU_OWN_CAMERA, status);
+ }
+ 
+-int ace_own_camera(void *ace, struct camera_status *status)
++static int ace_own_camera(void *ace, struct camera_status *status)
+ {
+ 	struct mei_ace *p_ace = (struct mei_ace *)ace;
+ 
+ 	return set_camera_ownership(p_ace, ACE_OWN_CAMERA, status);
+ }
+ 
+-int get_camera_status(void *ace, struct camera_status *status)
++static int get_camera_status(void *ace, struct camera_status *status)
+ {
+ 	int ret;
+ 	struct ace_cmd cmd;
+diff --git a/drivers/spi/spi-ljca.c b/drivers/spi/spi-ljca.c
+index adcd00f..f11556d 100644
+--- a/drivers/spi/spi-ljca.c
++++ b/drivers/spi/spi-ljca.c
+@@ -210,10 +210,6 @@ static int ljca_spi_transfer(struct ljca_spi_dev *ljca_spi, const u8 *tx_data,
+ static int ljca_spi_prepare_message(struct spi_master *master,
+ 				    struct spi_message *message)
+ {
+-	struct ljca_spi_dev *ljca_spi = spi_master_get_devdata(master);
+-	struct spi_device *spi = message->spi;
+-
+-	dev_dbg(&ljca_spi->pdev->dev, "cs %d\n", spi->chip_select);
+ 	return 0;
+ }
+ 
