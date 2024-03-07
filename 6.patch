@@ -1,0 +1,692 @@
+From 491b191be833f385d94e3165ec278775736afa71 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Tue, 5 Mar 2024 22:17:50 +0100
+Subject: [PATCH] Fix compilation with kernel >= 6.8
+
+1. Adjust for v4l2 subdev state API changes in 6.8.
+2. kernels >= 6.8 no longer have strlcpy use strscpy instead,
+   strscpy has been available since at least kernel 4.8.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/i2c/gc5035.c                | 19 +++++++++++++++++++
+ drivers/media/i2c/hi556.c                 | 13 ++++++++++---
+ drivers/media/i2c/hm11b1.c                | 12 +++++++++---
+ drivers/media/i2c/hm2170.c                | 13 +++++++++++++
+ drivers/media/i2c/hm2172.c                | 13 +++++++++++++
+ drivers/media/i2c/ov01a10.c               | 13 ++++++++++---
+ drivers/media/i2c/ov01a1s.c               | 13 ++++++++++---
+ drivers/media/i2c/ov02c10.c               | 13 ++++++++++---
+ drivers/media/i2c/ov02e10.c               | 13 +++++++++++++
+ drivers/media/i2c/ov08a10.c               | 13 +++++++++++++
+ drivers/media/i2c/ov2740.c                | 13 ++++++++++---
+ drivers/media/i2c/ov8856.c                | 13 ++++++++++---
+ drivers/media/pci/intel/cio2-bridge.c     |  1 +
+ drivers/media/pci/intel/ipu-isys-subdev.c | 20 +++++++++++++++++---
+ drivers/media/pci/intel/ipu-isys-video.c  |  6 +++---
+ drivers/media/pci/intel/ipu-isys.c        |  4 ++--
+ drivers/media/pci/intel/ipu-psys.c        |  2 +-
+ 17 files changed, 164 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/media/i2c/gc5035.c b/drivers/media/i2c/gc5035.c
+index 16bbd4845b8d..b421f29d9186 100644
+--- a/drivers/media/i2c/gc5035.c
++++ b/drivers/media/i2c/gc5035.c
+@@ -1497,7 +1497,11 @@ static int gc5035_set_fmt(struct v4l2_subdev *sd,
+ 
+ 	mutex_lock(&gc5035->mutex);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
++#endif
+ 	} else {
+ 		gc5035->cur_mode = mode;
+ 		h_blank = mode->hts_def - mode->width;
+@@ -1522,7 +1526,11 @@ static int gc5035_get_fmt(struct v4l2_subdev *sd,
+ 
+ 	mutex_lock(&gc5035->mutex);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(sd, sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
++#endif
+ 	} else {
+ 		fmt->format.width = mode->width;
+ 		fmt->format.height = mode->height;
+@@ -1714,13 +1722,21 @@ static const struct v4l2_subdev_video_ops gc5035_video_ops = {
+ };
+ 
+ static const struct v4l2_subdev_pad_ops gc5035_pad_ops = {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	.init_cfg = gc5035_entity_init_cfg,
++#endif
+ 	.enum_mbus_code = gc5035_enum_mbus_code,
+ 	.enum_frame_size = gc5035_enum_frame_sizes,
+ 	.get_fmt = gc5035_get_fmt,
+ 	.set_fmt = gc5035_set_fmt,
+ };
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
++static const struct v4l2_subdev_internal_ops gc5035_internal_ops = {
++	.init_state = gc5035_entity_init_cfg,
++};
++#endif
++
+ static const struct v4l2_subdev_ops gc5035_subdev_ops = {
+ 	.video	= &gc5035_video_ops,
+ 	.pad	= &gc5035_pad_ops,
+@@ -2091,6 +2107,9 @@ static int gc5035_probe(struct i2c_client *client)
+ 	mutex_init(&gc5035->mutex);
+ 	sd = &gc5035->subdev;
+ 	v4l2_i2c_subdev_init(sd, client, &gc5035_subdev_ops);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
++	sd->internal_ops = &gc5035_internal_ops;
++#endif
+ 	ret = gc5035_initialize_controls(gc5035);
+ 	if (ret) {
+ 		dev_err_probe(dev, ret, "Failed to initialize controls\n");
+diff --git a/drivers/media/i2c/hi556.c b/drivers/media/i2c/hi556.c
+index 97c821cf9371..8f71d8562264 100644
+--- a/drivers/media/i2c/hi556.c
++++ b/drivers/media/i2c/hi556.c
+@@ -1058,8 +1058,10 @@ static int hi556_set_format(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ #endif
+ 	} else {
+ 		hi556->cur_mode = mode;
+@@ -1101,10 +1103,12 @@ static int hi556_get_format(struct v4l2_subdev *sd,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		fmt->format =
+ 			*v4l2_subdev_get_try_format(&hi556->sd, cfg, fmt->pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&hi556->sd,
+ 							  sd_state,
+ 							  fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
+ #endif
+ 	else
+ 		hi556_assign_pad_format(hi556->cur_mode, &fmt->format);
+@@ -1160,9 +1164,12 @@ static int hi556_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 	hi556_assign_pad_format(&supported_modes[0],
+ 				v4l2_subdev_get_try_format(sd, fh->pad, 0));
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	hi556_assign_pad_format(&supported_modes[0],
+ 				v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	hi556_assign_pad_format(&supported_modes[0],
++				v4l2_subdev_state_get_format(fh->state, 0));
+ #endif
+ 	mutex_unlock(&hi556->mutex);
+ 
+diff --git a/drivers/media/i2c/hm11b1.c b/drivers/media/i2c/hm11b1.c
+index fa9da1b58b11..20a7f21a12a3 100644
+--- a/drivers/media/i2c/hm11b1.c
++++ b/drivers/media/i2c/hm11b1.c
+@@ -920,8 +920,10 @@ static int hm11b1_set_format(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ #endif
+ 	} else {
+ 		hm11b1->cur_mode = mode;
+@@ -961,9 +963,11 @@ static int hm11b1_get_format(struct v4l2_subdev *sd,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&hm11b1->sd, cfg,
+ 							  fmt->pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&hm11b1->sd,
+ 							  sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
+ #endif
+ 	else
+ 		hm11b1_update_pad_format(hm11b1->cur_mode, &fmt->format);
+@@ -1019,8 +1023,10 @@ static int hm11b1_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 	hm11b1_update_pad_format(&supported_modes[0],
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 				 v4l2_subdev_get_try_format(sd, fh->pad, 0));
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 				 v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++				 v4l2_subdev_state_get_format(fh->state, 0));
+ #endif
+ 	mutex_unlock(&hm11b1->mutex);
+ 
+diff --git a/drivers/media/i2c/hm2170.c b/drivers/media/i2c/hm2170.c
+index 74638557f7da..ec5c5f5fa3b6 100644
+--- a/drivers/media/i2c/hm2170.c
++++ b/drivers/media/i2c/hm2170.c
+@@ -1065,7 +1065,11 @@ static int hm2170_set_format(struct v4l2_subdev *sd,
+ 	mutex_lock(&hm2170->mutex);
+ 	hm2170_update_pad_format(mode, &fmt->format);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
++#endif
+ 	} else {
+ 		hm2170->cur_mode = mode;
+ 		__v4l2_ctrl_s_ctrl(hm2170->link_freq, mode->link_freq_index);
+@@ -1097,8 +1101,12 @@ static int hm2170_get_format(struct v4l2_subdev *sd,
+ 
+ 	mutex_lock(&hm2170->mutex);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&hm2170->sd,
+ 							  sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
++#endif
+ 	else
+ 		hm2170_update_pad_format(hm2170->cur_mode, &fmt->format);
+ 
+@@ -1144,8 +1152,13 @@ static int hm2170_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 	struct hm2170 *hm2170 = to_hm2170(sd);
+ 
+ 	mutex_lock(&hm2170->mutex);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	hm2170_update_pad_format(&supported_modes[hm2170->rev][0],
+ 				 v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	hm2170_update_pad_format(&supported_modes[hm2170->rev][0],
++				 v4l2_subdev_state_get_format(fh->state, 0));
++#endif
+ 	mutex_unlock(&hm2170->mutex);
+ 
+ 	return 0;
+diff --git a/drivers/media/i2c/hm2172.c b/drivers/media/i2c/hm2172.c
+index 71cef03bfcb2..966c59392e28 100644
+--- a/drivers/media/i2c/hm2172.c
++++ b/drivers/media/i2c/hm2172.c
+@@ -1494,7 +1494,11 @@ static int hm2172_set_format(struct v4l2_subdev *sd,
+ 	mutex_lock(&hm2172->mutex);
+ 	hm2172_update_pad_format(mode, &fmt->format);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
++#endif
+ 	} else {
+ 		hm2172->cur_mode = mode;
+ 		__v4l2_ctrl_s_ctrl(hm2172->link_freq, mode->link_freq_index);
+@@ -1526,8 +1530,12 @@ static int hm2172_get_format(struct v4l2_subdev *sd,
+ 
+ 	mutex_lock(&hm2172->mutex);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&hm2172->sd,
+ 							  sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
++#endif
+ 	else
+ 		hm2172_update_pad_format(hm2172->cur_mode, &fmt->format);
+ 
+@@ -1571,8 +1579,13 @@ static int hm2172_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 	struct hm2172 *hm2172 = to_hm2172(sd);
+ 
+ 	mutex_lock(&hm2172->mutex);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	hm2172_update_pad_format(&supported_modes[0],
+ 				 v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	hm2172_update_pad_format(&supported_modes[0],
++				 v4l2_subdev_state_get_format(fh->state, 0));
++#endif
+ 	mutex_unlock(&hm2172->mutex);
+ 
+ 	return 0;
+diff --git a/drivers/media/i2c/ov01a10.c b/drivers/media/i2c/ov01a10.c
+index ae8024e88344..0050bff87389 100644
+--- a/drivers/media/i2c/ov01a10.c
++++ b/drivers/media/i2c/ov01a10.c
+@@ -752,8 +752,10 @@ static int ov01a10_set_format(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ #endif
+ 	} else {
+ 		ov01a10->cur_mode = mode;
+@@ -791,9 +793,11 @@ static int ov01a10_get_format(struct v4l2_subdev *sd,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov01a10->sd, cfg,
+ 							  fmt->pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov01a10->sd,
+ 							  sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
+ #endif
+ 	else
+ 		ov01a10_update_pad_format(ov01a10->cur_mode, &fmt->format);
+@@ -849,9 +853,12 @@ static int ov01a10_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 	ov01a10_update_pad_format(&supported_modes[0],
+ 				  v4l2_subdev_get_try_format(sd, fh->pad, 0));
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	ov01a10_update_pad_format(&supported_modes[0],
+ 				  v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	ov01a10_update_pad_format(&supported_modes[0],
++				  v4l2_subdev_state_get_format(fh->state, 0));
+ #endif
+ 	mutex_unlock(&ov01a10->mutex);
+ 
+diff --git a/drivers/media/i2c/ov01a1s.c b/drivers/media/i2c/ov01a1s.c
+index 0dcce8b492b4..923b12b2a948 100644
+--- a/drivers/media/i2c/ov01a1s.c
++++ b/drivers/media/i2c/ov01a1s.c
+@@ -832,8 +832,10 @@ static int ov01a1s_set_format(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ #endif
+ 	} else {
+ 		ov01a1s->cur_mode = mode;
+@@ -871,9 +873,11 @@ static int ov01a1s_get_format(struct v4l2_subdev *sd,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov01a1s->sd, cfg,
+ 							  fmt->pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov01a1s->sd,
+ 							  sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
+ #endif
+ 	else
+ 		ov01a1s_update_pad_format(ov01a1s->cur_mode, &fmt->format);
+@@ -929,9 +933,12 @@ static int ov01a1s_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 	ov01a1s_update_pad_format(&supported_modes[0],
+ 				  v4l2_subdev_get_try_format(sd, fh->pad, 0));
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	ov01a1s_update_pad_format(&supported_modes[0],
+ 				  v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	ov01a1s_update_pad_format(&supported_modes[0],
++				  v4l2_subdev_state_get_format(fh->state, 0));
+ #endif
+ 	mutex_unlock(&ov01a1s->mutex);
+ 
+diff --git a/drivers/media/i2c/ov02c10.c b/drivers/media/i2c/ov02c10.c
+index 3f627442395c..5b159de84b2c 100644
+--- a/drivers/media/i2c/ov02c10.c
++++ b/drivers/media/i2c/ov02c10.c
+@@ -1176,8 +1176,10 @@ static int ov02c10_set_format(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ #endif
+ 	} else {
+ 		ov02c10->cur_mode = mode;
+@@ -1215,9 +1217,11 @@ static int ov02c10_get_format(struct v4l2_subdev *sd,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov02c10->sd, cfg,
+ 							  fmt->pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov02c10->sd,
+ 							  sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
+ #endif
+ 	else
+ 		ov02c10_update_pad_format(ov02c10->cur_mode, &fmt->format);
+@@ -1273,9 +1277,12 @@ static int ov02c10_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 	ov02c10_update_pad_format(&supported_modes[0],
+ 				  v4l2_subdev_get_try_format(sd, fh->pad, 0));
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	ov02c10_update_pad_format(&supported_modes[0],
+ 				  v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	ov02c10_update_pad_format(&supported_modes[0],
++				  v4l2_subdev_state_get_format(fh->state, 0));
+ #endif
+ 	mutex_unlock(&ov02c10->mutex);
+ 
+diff --git a/drivers/media/i2c/ov02e10.c b/drivers/media/i2c/ov02e10.c
+index ccdb7dae5ed6..5697f3c2d14e 100644
+--- a/drivers/media/i2c/ov02e10.c
++++ b/drivers/media/i2c/ov02e10.c
+@@ -877,8 +877,12 @@ static int ov02e10_set_format(struct v4l2_subdev *sd,
+ 	mutex_lock(&ov02e10->mutex);
+ 	ov02e10_update_pad_format(mode, &fmt->format);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) =
+ 		    fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
++#endif
+ 	} else {
+ 		ov02e10->cur_mode = mode;
+ 		__v4l2_ctrl_s_ctrl(ov02e10->link_freq, mode->link_freq_index);
+@@ -910,8 +914,12 @@ static int ov02e10_get_format(struct v4l2_subdev *sd,
+ 
+ 	mutex_lock(&ov02e10->mutex);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov02e10->sd,
+ 							  sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
++#endif
+ 	else
+ 		ov02e10_update_pad_format(ov02e10->cur_mode, &fmt->format);
+ 
+@@ -955,8 +963,13 @@ static int ov02e10_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 	struct ov02e10 *ov02e10 = to_ov02e10(sd);
+ 
+ 	mutex_lock(&ov02e10->mutex);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	ov02e10_update_pad_format(&supported_modes[0],
+ 				  v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	ov02e10_update_pad_format(&supported_modes[0],
++				  v4l2_subdev_state_get_format(fh->state, 0));
++#endif
+ 	mutex_unlock(&ov02e10->mutex);
+ 
+ 	return 0;
+diff --git a/drivers/media/i2c/ov08a10.c b/drivers/media/i2c/ov08a10.c
+index d47473528ad0..ceda341e6129 100644
+--- a/drivers/media/i2c/ov08a10.c
++++ b/drivers/media/i2c/ov08a10.c
+@@ -858,8 +858,12 @@ static int ov08a10_set_format(struct v4l2_subdev *sd,
+ 	mutex_lock(&ov08a10->mutex);
+ 	ov08a10_update_pad_format(mode, &fmt->format);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state,
+ 					    fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
++#endif
+ 	} else {
+ 		ov08a10->cur_mode = mode;
+ 		__v4l2_ctrl_s_ctrl(ov08a10->link_freq, mode->link_freq_index);
+@@ -892,9 +896,13 @@ static int ov08a10_get_format(struct v4l2_subdev *sd,
+ 
+ 	mutex_lock(&ov08a10->mutex);
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov08a10->sd,
+ 							  sd_state,
+ 							  fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
++#endif
+ 	else
+ 		ov08a10_update_pad_format(ov08a10->cur_mode, &fmt->format);
+ 
+@@ -938,8 +946,13 @@ static int ov08a10_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 	struct ov08a10 *ov08a10 = to_ov08a10(sd);
+ 
+ 	mutex_lock(&ov08a10->mutex);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	ov08a10_update_pad_format(&supported_modes[0],
+ 				  v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	ov08a10_update_pad_format(&supported_modes[0],
++				  v4l2_subdev_state_get_format(fh->state, 0));
++#endif
+ 	mutex_unlock(&ov08a10->mutex);
+ 
+ 	return 0;
+diff --git a/drivers/media/i2c/ov2740.c b/drivers/media/i2c/ov2740.c
+index f117173309aa..568831f00ecf 100644
+--- a/drivers/media/i2c/ov2740.c
++++ b/drivers/media/i2c/ov2740.c
+@@ -1115,8 +1115,10 @@ static int ov2740_set_format(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ #endif
+ 	} else {
+ 		ov2740->cur_mode = mode;
+@@ -1157,10 +1159,12 @@ static int ov2740_get_format(struct v4l2_subdev *sd,
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov2740->sd,
+ 							  cfg,
+ 							  fmt->pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov2740->sd,
+ 							  sd_state,
+ 							  fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
+ #endif
+ 	else
+ 		ov2740_update_pad_format(ov2740->cur_mode, &fmt->format);
+@@ -1230,9 +1234,12 @@ static int ov2740_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 	ov2740_update_pad_format(ov2740->cur_mode,
+ 				 v4l2_subdev_get_try_format(sd, fh->pad, 0));
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	ov2740_update_pad_format(ov2740->cur_mode,
+ 				 v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	ov2740_update_pad_format(ov2740->cur_mode,
++				 v4l2_subdev_state_get_format(fh->state, 0));
+ #endif
+ 	mutex_unlock(&ov2740->mutex);
+ 
+diff --git a/drivers/media/i2c/ov8856.c b/drivers/media/i2c/ov8856.c
+index b1e938e678c7..a66117db2015 100644
+--- a/drivers/media/i2c/ov8856.c
++++ b/drivers/media/i2c/ov8856.c
+@@ -1043,8 +1043,10 @@ static int ov8856_set_format(struct v4l2_subdev *sd,
+ 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		*v4l2_subdev_get_try_format(sd, sd_state, fmt->pad) = fmt->format;
++#else
++		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
+ #endif
+ 	} else {
+ 		ov8856->cur_mode = mode;
+@@ -1085,9 +1087,11 @@ static int ov8856_get_format(struct v4l2_subdev *sd,
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov8856->sd, cfg,
+ 							  fmt->pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		fmt->format = *v4l2_subdev_get_try_format(&ov8856->sd,
+ 							  sd_state, fmt->pad);
++#else
++		fmt->format = *v4l2_subdev_state_get_format(sd_state, fmt->pad);
+ #endif
+ 	else
+ 		ov8856_update_pad_format(ov8856->cur_mode, &fmt->format);
+@@ -1144,9 +1148,12 @@ static int ov8856_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 	ov8856_update_pad_format(&supported_modes[0],
+ 				 v4l2_subdev_get_try_format(sd, fh->pad, 0));
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 	ov8856_update_pad_format(&supported_modes[0],
+ 				 v4l2_subdev_get_try_format(sd, fh->state, 0));
++#else
++	ov8856_update_pad_format(&supported_modes[0],
++				 v4l2_subdev_state_get_format(fh->state, 0));
+ #endif
+ 	mutex_unlock(&ov8856->mutex);
+ 
+diff --git a/drivers/media/pci/intel/cio2-bridge.c b/drivers/media/pci/intel/cio2-bridge.c
+index 4d4cf0a2e6e3..889e4195d509 100644
+--- a/drivers/media/pci/intel/cio2-bridge.c
++++ b/drivers/media/pci/intel/cio2-bridge.c
+@@ -9,6 +9,7 @@
+ #include <linux/version.h>
+ #include <media/v4l2-fwnode.h>
+ 
++#include "ipu.h"
+ #include "cio2-bridge.h"
+ 
+ /*
+diff --git a/drivers/media/pci/intel/ipu-isys-subdev.c b/drivers/media/pci/intel/ipu-isys-subdev.c
+index 7bf736712727..b65d7bb2eaef 100644
+--- a/drivers/media/pci/intel/ipu-isys-subdev.c
++++ b/drivers/media/pci/intel/ipu-isys-subdev.c
+@@ -162,8 +162,10 @@ struct v4l2_mbus_framefmt *__ipu_isys_get_ffmt(struct v4l2_subdev *sd,
+ 		return v4l2_subdev_get_try_format(cfg, pad);
+ #elif LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+ 		return v4l2_subdev_get_try_format(sd, cfg, pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		return v4l2_subdev_get_try_format(sd, state, pad);
++#else
++		return v4l2_subdev_state_get_format(state, pad);
+ #endif
+ }
+ 
+@@ -199,11 +201,16 @@ struct v4l2_rect *__ipu_isys_get_selection(struct v4l2_subdev *sd,
+ 			return v4l2_subdev_get_try_crop(sd, cfg, pad);
+ 		case V4L2_SEL_TGT_COMPOSE:
+ 			return v4l2_subdev_get_try_compose(sd, cfg, pad);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		case V4L2_SEL_TGT_CROP:
+ 			return v4l2_subdev_get_try_crop(sd, state, pad);
+ 		case V4L2_SEL_TGT_COMPOSE:
+ 			return v4l2_subdev_get_try_compose(sd, state, pad);
++#else
++		case V4L2_SEL_TGT_CROP:
++			return v4l2_subdev_state_get_crop(state, pad);
++		case V4L2_SEL_TGT_COMPOSE:
++			return v4l2_subdev_state_get_compose(state, pad);
+ #endif
+ 		}
+ 	}
+@@ -755,13 +762,20 @@ int ipu_isys_subdev_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+ 			v4l2_subdev_get_try_crop(sd, fh->pad, i);
+ 		struct v4l2_rect *try_compose =
+ 			v4l2_subdev_get_try_compose(sd, fh->pad, i);
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+ 		struct v4l2_mbus_framefmt *try_fmt =
+ 			v4l2_subdev_get_try_format(sd, fh->state, i);
+ 		struct v4l2_rect *try_crop =
+ 			v4l2_subdev_get_try_crop(sd, fh->state, i);
+ 		struct v4l2_rect *try_compose =
+ 			v4l2_subdev_get_try_compose(sd, fh->state, i);
++#else
++		struct v4l2_mbus_framefmt *try_fmt =
++			v4l2_subdev_state_get_format(fh->state, i);
++		struct v4l2_rect *try_crop =
++			v4l2_subdev_state_get_crop(fh->state, i);
++		struct v4l2_rect *try_compose =
++			v4l2_subdev_state_get_compose(fh->state, i);
+ #endif
+ 
+ 		*try_fmt = asd->ffmt[i];
+diff --git a/drivers/media/pci/intel/ipu-isys-video.c b/drivers/media/pci/intel/ipu-isys-video.c
+index 3ee79afef21c..11f17cd1faa1 100644
+--- a/drivers/media/pci/intel/ipu-isys-video.c
++++ b/drivers/media/pci/intel/ipu-isys-video.c
+@@ -359,8 +359,8 @@ int ipu_isys_vidioc_querycap(struct file *file, void *fh,
+ {
+ 	struct ipu_isys_video *av = video_drvdata(file);
+ 
+-	strlcpy(cap->driver, IPU_ISYS_NAME, sizeof(cap->driver));
+-	strlcpy(cap->card, av->isys->media_dev.model, sizeof(cap->card));
++	strscpy(cap->driver, IPU_ISYS_NAME, sizeof(cap->driver));
++	strscpy(cap->card, av->isys->media_dev.model, sizeof(cap->card));
+ 	snprintf(cap->bus_info, sizeof(cap->bus_info), "PCI:%s",
+ 		 av->isys->media_dev.bus_info);
+ 	return 0;
+@@ -586,7 +586,7 @@ static int vidioc_enum_input(struct file *file, void *fh,
+ {
+ 	if (input->index > 0)
+ 		return -EINVAL;
+-	strlcpy(input->name, "camera", sizeof(input->name));
++	strscpy(input->name, "camera", sizeof(input->name));
+ 	input->type = V4L2_INPUT_TYPE_CAMERA;
+ 
+ 	return 0;
+diff --git a/drivers/media/pci/intel/ipu-isys.c b/drivers/media/pci/intel/ipu-isys.c
+index 222c901b32a0..165d4b90e12c 100644
+--- a/drivers/media/pci/intel/ipu-isys.c
++++ b/drivers/media/pci/intel/ipu-isys.c
+@@ -985,14 +985,14 @@ static int isys_register_devices(struct ipu_isys *isys)
+ #else
+ 	isys->media_dev.link_notify = v4l2_pipeline_link_notify;
+ #endif
+-	strlcpy(isys->media_dev.model,
++	strscpy(isys->media_dev.model,
+ 		IPU_MEDIA_DEV_MODEL_NAME, sizeof(isys->media_dev.model));
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
+ 	isys->media_dev.driver_version = LINUX_VERSION_CODE;
+ #endif
+ 	snprintf(isys->media_dev.bus_info, sizeof(isys->media_dev.bus_info),
+ 		 "pci:%s", dev_name(isys->adev->dev.parent->parent));
+-	strlcpy(isys->v4l2_dev.name, isys->media_dev.model,
++	strscpy(isys->v4l2_dev.name, isys->media_dev.model,
+ 		sizeof(isys->v4l2_dev.name));
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
+diff --git a/drivers/media/pci/intel/ipu-psys.c b/drivers/media/pci/intel/ipu-psys.c
+index 8e8e200677cb..a698edb51d7a 100644
+--- a/drivers/media/pci/intel/ipu-psys.c
++++ b/drivers/media/pci/intel/ipu-psys.c
+@@ -1647,7 +1647,7 @@ static int ipu_psys_probe(struct ipu_bus_device *adev)
+ 	}
+ 
+ 	/* Add the hw stepping information to caps */
+-	strlcpy(psys->caps.dev_model, IPU_MEDIA_DEV_MODEL_NAME,
++	strscpy(psys->caps.dev_model, IPU_MEDIA_DEV_MODEL_NAME,
+ 		sizeof(psys->caps.dev_model));
+ 
+ 	pm_runtime_set_autosuspend_delay(&psys->adev->dev,

@@ -1,0 +1,53 @@
+From 8ff945ba4964fad45e36230ec799dfc0405c2d5e Mon Sep 17 00:00:00 2001
+From: Kate Hsuan <hpa@redhat.com>
+Date: Thu, 7 Mar 2024 13:20:05 +0800
+Subject: [PATCH] Skip ljca modules for the kernel >=6.7
+
+---
+ Makefile | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 4b8b3b551..42e82d49a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,16 +1,32 @@
+ # SPDX-License-Identifier: GPL-2.0
+ # Copyright (c) 2022 Intel Corporation.
+ 
+-obj-m += ljca.o
++K_VERSION = $(shell uname -r)
++K_MAJ = $(shell echo $(K_VERSION)|sed -e 's/^\([0-9][0-9]*\)\.[0-9][0-9]*\.[0-9][0-9]*.*/\1/' )
++K_MIN = $(shell echo $(K_VERSION)|sed -e 's/^[0-9][0-9]*\.\([0-9][0-9]*\)\.[0-9][0-9]*.*/\1/')
++
++version_greator = $(shell echo test | awk '{if($(K_MAJ) < $(1)) {print 0}}')
++
++ver_ge = $(shell \
++echo test | awk '{if($(K_MAJ) < $(1)) {print 0} else { \
++if($(K_MAJ) > $(1)) {print 1} else { \
++if($(K_MIN) < $(2)) {print 0} else { print 1 } \
++}}}' \
++)
++
++ifeq ($(call ver_ge,6,7),0)
++	obj-m += i2c-ljca.o
++	obj-m += ljca.o
++	obj-m += spi-ljca.o
++	obj-m += gpio-ljca.o
++endif
++
+ ljca-y := drivers/mfd/ljca.o
+ 
+-obj-m += spi-ljca.o
+ spi-ljca-y := drivers/spi/spi-ljca.o
+ 
+-obj-m += gpio-ljca.o
+ gpio-ljca-y := drivers/gpio/gpio-ljca.o
+ 
+-obj-m += i2c-ljca.o
+ i2c-ljca-y := drivers/i2c/busses/i2c-ljca.o
+ 
+ obj-m += mei-vsc.o
+-- 
+2.43.2
+
