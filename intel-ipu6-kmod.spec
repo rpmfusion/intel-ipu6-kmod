@@ -3,12 +3,12 @@
 %global debug_package %{nil}
 %endif
 
-%global ipu6_commit 8e410803b5d31c2c5bf32961f786d205ba6acc5d
-%global ipu6_commitdate 20230622
+%global ipu6_commit fb4c17019c9ede9412065d61ecd352cdf1c0e7af
+%global ipu6_commitdate 20240226
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
-%global ivsc_commit e8ea8b825217091fa91c9b3cb68cee4101d416e2
-%global ivsc_commitdate 20231009
+%global ivsc_commit 73a044d9633212fac54ea96cdd882ff5ab40573e
+%global ivsc_commitdate 20231109
 %global ivsc_shortcommit %(c=%{ivsc_commit}; echo ${c:0:7})
 
 %global prjname intel-ipu6
@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        10.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        11.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -25,9 +25,17 @@ Source1:        %{url}/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_s
 
 
 # Patches
-Patch10:        0001-ipu-psys-Fix-compilation-with-kernels-6.5.0.patch
-Patch11:        0001-ipu6-Fix-compilation-with-kernels-6.6.0.patch
-Patch12:        0001-spi-vsc-Call-acpi_dev_clear_dependencies.patch
+# https://github.com/intel/ipu6-drivers/pull/213
+# https://github.com/intel/ipu6-drivers/pull/214
+Patch10:        1.patch
+Patch11:        2.patch
+Patch12:        3.patch
+Patch13:        4.patch
+Patch14:        5.patch
+Patch15:        6.patch
+Patch16:        0001-Skip-ljca-modules-for-the-kernel-6.7.patch
+# https://github.com/intel/ivsc-driver/pull/44
+Patch17:        vsc-44.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -54,12 +62,17 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 
 %setup -q -c -a 1
 (cd ipu6-drivers-%{ipu6_commit}
-%patch10 -p1
-%patch11 -p1
+%patch 10 -p1
+%patch 11 -p1
+%patch 12 -p1
+%patch 13 -p1
+%patch 14 -p1
+%patch 15 -p1
+%patch 16 -p1
 )
 
 (cd ivsc-driver-%{ivsc_commit}
-%patch12 -p1
+%patch 17 -p1
 )
 
 cp -Rp ivsc-driver-%{ivsc_commit}/backport-include ipu6-drivers-%{ipu6_commit}/
@@ -89,22 +102,18 @@ for kernel_version in %{?kernel_versions}; do
   install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/intel-ipu6-isys.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/intel-ipu6-isys.ko
   install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/intel-ipu6-psys.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/intel-ipu6-psys.ko
   install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/intel-ipu6.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/intel-ipu6.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/gpio-ljca.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/gpio-ljca.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/i2c-ljca.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/i2c-ljca.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/intel_vsc.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/intel_vsc.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/ljca.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/ljca.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/mei-vsc.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/mei-vsc.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/mei_ace.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/mei_ace.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/mei_ace_debug.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/mei_ace_debug.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/mei_csi.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/mei_csi.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/mei_pse.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/mei_pse.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/spi-ljca.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/spi-ljca.ko
+  install -D -m 755 _kmod_build_${kernel_version%%___*}/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}
   chmod a+x %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/*.ko
 done
 %{?akmod_install}
 
 
 %changelog
+* Thu Mar 07 2024 Kate Hsuan <hpa@redhat.com> - 0.0-11.20240226gitfb4c170
+- Fix for kernel >= 6.7
+- Fix and improve ipu6_isys probe()
+- Skip ljca driver when the system runs the kernel >= 6.7
+
 * Sat Nov  4 2023 Hans de Goede <hdegoede@redhat.com> - 0.0-10.20230622git8e41080
 - Add "spi_vsc: Call acpi_dev_clear_dependencies()" patch to fix laptops
   with iVSC chip no longer working with 6.6 kernels

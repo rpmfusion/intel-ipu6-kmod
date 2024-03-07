@@ -1,0 +1,84 @@
+From 4b33ce53bbe991f82ebc4fd16e4d70dd2f24c86c Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Tue, 5 Mar 2024 17:05:57 +0100
+Subject: [PATCH] ipu6-isys: Fix crash when ipu_isys_csi2_init() fails
+
+Calling isys_unregister_subdevices() on errors in
+isys_register_subdevices() leads to not yet registered subdevs
+getting unregistered resulting in a NULL pointer deref:
+
+[  143.100638] BUG: kernel NULL pointer dereference, address: 0000000000000000
+...
+[  143.100655] RIP: 0010:__wake_up_common+0x2a/0xa0
+...
+[  143.100672] Call Trace:
+[  143.100674]  <TASK>
+[  143.100676]  ? __die+0x23/0x70
+[  143.100680]  ? page_fault_oops+0x171/0x4e0
+[  143.100684]  ? exc_page_fault+0x7f/0x180
+[  143.100687]  ? asm_exc_page_fault+0x26/0x30
+[  143.100690]  ? __wake_up_common+0x2a/0xa0
+[  143.100692]  __wake_up+0x36/0x60
+[  143.100697]  __vb2_queue_cancel+0xd2/0x290 [videobuf2_common]
+[  143.100706]  vb2_core_queue_release+0x22/0x50 [videobuf2_common]
+[  143.100714]  isys_unregister_subdevices+0x49/0xb0 [intel_ipu6_isys]
+[  143.100723]  isys_probe+0x59c/0xa30 [intel_ipu6_isys]
+
+Fix this by only cleaning up subdevs which have actually been registered.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/pci/intel/ipu-isys.c | 23 +++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/media/pci/intel/ipu-isys.c b/drivers/media/pci/intel/ipu-isys.c
+index 19b3fee56dd2..d57a38b637b5 100644
+--- a/drivers/media/pci/intel/ipu-isys.c
++++ b/drivers/media/pci/intel/ipu-isys.c
+@@ -382,15 +382,12 @@ static int isys_register_subdevices(struct ipu_isys *isys)
+ 	const struct ipu_isys_internal_csi2_pdata *csi2 =
+ 	    &isys->pdata->ipdata->csi2;
+ 	struct ipu_isys_csi2_be_soc *csi2_be_soc;
+-	unsigned int i, k;
+-	int rval;
++	int i = 0, k = 0, rval;
+ 
+ 	isys->csi2 = devm_kcalloc(&isys->adev->dev, csi2->nports,
+ 				  sizeof(*isys->csi2), GFP_KERNEL);
+-	if (!isys->csi2) {
+-		rval = -ENOMEM;
+-		goto fail;
+-	}
++	if (!isys->csi2)
++		return -ENOMEM;
+ 
+ 	for (i = 0; i < csi2->nports; i++) {
+ 		rval = ipu_isys_csi2_init(&isys->csi2[i], isys,
+@@ -425,7 +422,8 @@ static int isys_register_subdevices(struct ipu_isys *isys)
+ 			if (rval) {
+ 				dev_info(&isys->adev->dev,
+ 					 "can't create link csi2->be_soc\n");
+-				goto fail;
++				isys_unregister_subdevices(isys);
++				return rval;
+ 			}
+ 		}
+ 	}
+@@ -433,7 +431,16 @@ static int isys_register_subdevices(struct ipu_isys *isys)
+ 	return 0;
+ 
+ fail:
+-	isys_unregister_subdevices(isys);
++	while (--k >= 0) {
++		dev_info(&isys->adev->dev, "foo %d\n", k);
++		ipu_isys_csi2_be_soc_cleanup(&isys->csi2_be_soc[k]);
++	}
++
++	while (--i >= 0) {
++		dev_info(&isys->adev->dev, "bar %d\n", k);
++		ipu_isys_csi2_cleanup(&isys->csi2[i]);
++	}
++
+ 	return rval;
+ }
+ 

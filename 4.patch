@@ -1,0 +1,56 @@
+From 777bf4727f61937603633a4bc1955c0c0077bd92 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Tue, 5 Mar 2024 18:14:50 +0100
+Subject: [PATCH] ipu6-isys: Fix ipu_isys_probe() error exit resource cleanup
+
+Add a bunch of missing resource cleanups to ipu_isys_probe()'s
+error exit path.
+
+Also add a missing mutex_destroy() to isys_remove()
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/pci/intel/ipu-isys.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/media/pci/intel/ipu-isys.c b/drivers/media/pci/intel/ipu-isys.c
+index d57a38b637b5..222c901b32a0 100644
+--- a/drivers/media/pci/intel/ipu-isys.c
++++ b/drivers/media/pci/intel/ipu-isys.c
+@@ -1217,6 +1217,7 @@ static void isys_remove(struct ipu_bus_device *adev)
+ 
+ 	mutex_destroy(&isys->stream_mutex);
+ 	mutex_destroy(&isys->mutex);
++	mutex_destroy(&isys->lib_mutex);
+ 
+ 	if (isys->short_packet_source == IPU_ISYS_SHORT_PACKET_FROM_TUNIT) {
+ 		u32 trace_size = IPU_ISYS_SHORT_PACKET_TRACE_BUFFER_SIZE;
+@@ -1587,6 +1588,16 @@ static int isys_probe(struct ipu_bus_device *adev)
+ 	isys_iwake_watermark_cleanup(isys);
+ 	isys_unregister_devices(isys);
+ out_remove_pkg_dir_shared_buffer:
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
++	cpu_latency_qos_remove_request(&isys->pm_qos);
++#else
++	pm_qos_remove_request(&isys->pm_qos);
++#endif
++	ipu_trace_uninit(&adev->dev);
++#ifdef CONFIG_DEBUG_FS
++	if (isp->ipu_dir)
++		debugfs_remove_recursive(isys->debugfsdir);
++#endif
+ 	if (!isp->secure_mode)
+ 		ipu_cpd_free_pkg_dir(adev, isys->pkg_dir,
+ 				     isys->pkg_dir_dma_addr,
+@@ -1597,10 +1608,10 @@ static int isys_probe(struct ipu_bus_device *adev)
+ release_firmware:
+ 	if (!isp->secure_mode)
+ 		release_firmware(isys->fw);
+-	ipu_trace_uninit(&adev->dev);
+ 
+ 	mutex_destroy(&isys->mutex);
+ 	mutex_destroy(&isys->stream_mutex);
++	mutex_destroy(&isys->lib_mutex);
+ 
+ 	if (isys->short_packet_source == IPU_ISYS_SHORT_PACKET_FROM_TUNIT)
+ 		mutex_destroy(&isys->short_packet_tracing_mutex);
