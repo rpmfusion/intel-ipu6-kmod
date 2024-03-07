@@ -1,0 +1,363 @@
+From 6d44fd57f373ea12f4f8d47883be29f749ab1704 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Mon, 28 Aug 2023 17:05:16 +0200
+Subject: [PATCH] ipu6: Fix compilation with kernels >= 6.6.0
+
+Kernel 6.6 has made some significant changes to how v4l2-async
+(sub)dev registration works. Adjust the code accordingly.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/i2c/gc5035.c                   |  4 +
+ drivers/media/i2c/hi556.c                    |  4 +
+ drivers/media/i2c/hm11b1.c                   |  4 +
+ drivers/media/i2c/hm2170.c                   |  4 +
+ drivers/media/i2c/ov01a10.c                  |  4 +
+ drivers/media/i2c/ov01a1s.c                  |  4 +
+ drivers/media/i2c/ov02c10.c                  |  4 +
+ drivers/media/i2c/ov2740.c                   |  4 +
+ drivers/media/i2c/ov8856.c                   |  4 +
+ drivers/media/pci/intel/ipu-isys.c           | 78 +++++++++++++++++++-
+ drivers/media/pci/intel/ipu6/ipu6-isys-phy.c | 14 +++-
+ include/media/ipu-isys.h                     |  5 ++
+ 12 files changed, 130 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/i2c/gc5035.c b/drivers/media/i2c/gc5035.c
+index b46fd5474..25f08ccf4 100644
+--- a/drivers/media/i2c/gc5035.c
++++ b/drivers/media/i2c/gc5035.c
+@@ -2188,7 +2188,11 @@ static struct i2c_driver gc5035_i2c_driver = {
+ 		.acpi_match_table = ACPI_PTR(gc5035_acpi_ids),
+ 		.of_match_table = gc5035_of_match,
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new	= gc5035_probe,
++#else
++	.probe		= gc5035_probe,
++#endif
+ 	.remove		= gc5035_remove,
+ };
+ module_i2c_driver(gc5035_i2c_driver);
+diff --git a/drivers/media/i2c/hi556.c b/drivers/media/i2c/hi556.c
+index 574eb3f14..658a8aab8 100644
+--- a/drivers/media/i2c/hi556.c
++++ b/drivers/media/i2c/hi556.c
+@@ -1220,7 +1220,11 @@ static struct i2c_driver hi556_i2c_driver = {
+ 		.pm = &hi556_pm_ops,
+ 		.acpi_match_table = ACPI_PTR(hi556_acpi_ids),
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new = hi556_probe,
++#else
++	.probe = hi556_probe,
++#endif
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0)
+ 	.remove = hi556_remove_bp,
+ #else
+diff --git a/drivers/media/i2c/hm11b1.c b/drivers/media/i2c/hm11b1.c
+index 071cb0607..9bfc51d69 100644
+--- a/drivers/media/i2c/hm11b1.c
++++ b/drivers/media/i2c/hm11b1.c
+@@ -1228,7 +1228,11 @@ static struct i2c_driver hm11b1_i2c_driver = {
+ 		.pm = &hm11b1_pm_ops,
+ 		.acpi_match_table = ACPI_PTR(hm11b1_acpi_ids),
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new = hm11b1_probe,
++#else
++	.probe = hm11b1_probe,
++#endif
+ 	.remove = hm11b1_remove,
+ };
+ 
+diff --git a/drivers/media/i2c/hm2170.c b/drivers/media/i2c/hm2170.c
+index 0c55a78ae..3660d1bc0 100644
+--- a/drivers/media/i2c/hm2170.c
++++ b/drivers/media/i2c/hm2170.c
+@@ -1307,7 +1307,11 @@ static struct i2c_driver hm2170_i2c_driver = {
+ 		.pm = &hm2170_pm_ops,
+ 		.acpi_match_table = hm2170_acpi_ids,
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new = hm2170_probe,
++#else
++	.probe = hm2170_probe,
++#endif
+ 	.remove = hm2170_remove,
+ };
+ 
+diff --git a/drivers/media/i2c/ov01a10.c b/drivers/media/i2c/ov01a10.c
+index 9b12fbc2e..ddd36d9f4 100644
+--- a/drivers/media/i2c/ov01a10.c
++++ b/drivers/media/i2c/ov01a10.c
+@@ -989,7 +989,11 @@ static struct i2c_driver ov01a10_i2c_driver = {
+ 		.pm = &ov01a10_pm_ops,
+ 		.acpi_match_table = ACPI_PTR(ov01a10_acpi_ids),
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new = ov01a10_probe,
++#else
++	.probe = ov01a10_probe,
++#endif
+ 	.remove = ov01a10_remove,
+ };
+ 
+diff --git a/drivers/media/i2c/ov01a1s.c b/drivers/media/i2c/ov01a1s.c
+index d46f895a5..15481b572 100644
+--- a/drivers/media/i2c/ov01a1s.c
++++ b/drivers/media/i2c/ov01a1s.c
+@@ -1131,7 +1131,11 @@ static struct i2c_driver ov01a1s_i2c_driver = {
+ 		.pm = &ov01a1s_pm_ops,
+ 		.acpi_match_table = ACPI_PTR(ov01a1s_acpi_ids),
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new = ov01a1s_probe,
++#else
++	.probe = ov01a1s_probe,
++#endif
+ 	.remove = ov01a1s_remove,
+ };
+ 
+diff --git a/drivers/media/i2c/ov02c10.c b/drivers/media/i2c/ov02c10.c
+index 9fe5e9127..da31e4104 100644
+--- a/drivers/media/i2c/ov02c10.c
++++ b/drivers/media/i2c/ov02c10.c
+@@ -1405,7 +1405,11 @@ static struct i2c_driver ov02c10_i2c_driver = {
+ 		.pm = &ov02c10_pm_ops,
+ 		.acpi_match_table = ACPI_PTR(ov02c10_acpi_ids),
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new = ov02c10_probe,
++#else
++	.probe = ov02c10_probe,
++#endif
+ 	.remove = ov02c10_remove,
+ };
+ 
+diff --git a/drivers/media/i2c/ov2740.c b/drivers/media/i2c/ov2740.c
+index 293c1b693..8d22688ff 100644
+--- a/drivers/media/i2c/ov2740.c
++++ b/drivers/media/i2c/ov2740.c
+@@ -1583,7 +1583,11 @@ static struct i2c_driver ov2740_i2c_driver = {
+ 		.pm = &ov2740_pm_ops,
+ 		.acpi_match_table = ov2740_acpi_ids,
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new = ov2740_probe,
++#else
++	.probe = ov2740_probe,
++#endif
+ 	.remove = ov2740_remove,
+ };
+ 
+diff --git a/drivers/media/i2c/ov8856.c b/drivers/media/i2c/ov8856.c
+index 07b4d16e7..b1e938e67 100644
+--- a/drivers/media/i2c/ov8856.c
++++ b/drivers/media/i2c/ov8856.c
+@@ -1308,7 +1308,11 @@ static struct i2c_driver ov8856_i2c_driver = {
+ 		.pm = &ov8856_pm_ops,
+ 		.acpi_match_table = ACPI_PTR(ov8856_acpi_ids),
+ 	},
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	.probe_new = ov8856_probe,
++#else
++	.probe = ov8856_probe,
++#endif
+ 	.remove = ov8856_remove,
+ 	.id_table = ov8856_id_table,
+ };
+diff --git a/drivers/media/pci/intel/ipu-isys.c b/drivers/media/pci/intel/ipu-isys.c
+index d4a76f0f4..4089141ad 100644
+--- a/drivers/media/pci/intel/ipu-isys.c
++++ b/drivers/media/pci/intel/ipu-isys.c
+@@ -720,7 +720,11 @@ static int isys_iwake_watermark_cleanup(struct ipu_isys *isys)
+ /* The .bound() notifier callback when a match is found */
+ static int isys_notifier_bound(struct v4l2_async_notifier *notifier,
+ 			       struct v4l2_subdev *sd,
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 			       struct v4l2_async_subdev *asd)
++#else
++			       struct v4l2_async_connection *asd)
++#endif
+ {
+ 	struct ipu_isys *isys = container_of(notifier,
+ 					struct ipu_isys, notifier);
+@@ -736,7 +740,11 @@ static int isys_notifier_bound(struct v4l2_async_notifier *notifier,
+ 
+ static void isys_notifier_unbind(struct v4l2_async_notifier *notifier,
+ 				 struct v4l2_subdev *sd,
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 				 struct v4l2_async_subdev *asd)
++#else
++				 struct v4l2_async_connection *asd)
++#endif
+ {
+ 	struct ipu_isys *isys = container_of(notifier,
+ 					struct ipu_isys, notifier);
+@@ -760,6 +768,7 @@ static const struct v4l2_async_notifier_operations isys_async_ops = {
+ 	.complete = isys_notifier_complete,
+ };
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ static int isys_fwnode_parse(struct device *dev,
+ 			     struct v4l2_fwnode_endpoint *vep,
+ 			     struct v4l2_async_subdev *asd)
+@@ -772,6 +781,7 @@ static int isys_fwnode_parse(struct device *dev,
+ 
+ 	return 0;
+ }
++#endif
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0) && LINUX_VERSION_CODE != KERNEL_VERSION(5, 15, 71)
+ static int isys_notifier_init(struct ipu_isys *isys)
+@@ -814,7 +824,7 @@ static void isys_notifier_cleanup(struct ipu_isys *isys)
+ 	v4l2_async_notifier_unregister(&isys->notifier);
+ 	v4l2_async_notifier_cleanup(&isys->notifier);
+ }
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ static int isys_notifier_init(struct ipu_isys *isys)
+ {
+ 	struct ipu_device *isp = isys->adev->isp;
+@@ -847,7 +857,73 @@ static int isys_notifier_init(struct ipu_isys *isys)
+ 
+ 	return ret;
+ }
++#else
++static int isys_notifier_init(struct ipu_isys *isys)
++{
++	const struct ipu_isys_internal_csi2_pdata *csi2 =
++	    &isys->pdata->ipdata->csi2;
++	struct ipu_device *isp = isys->adev->isp;
++	struct device *dev = &isp->pdev->dev;
++	unsigned int i;
++	int ret;
++
++	v4l2_async_nf_init(&isys->notifier, &isys->v4l2_dev);
++
++	for (i = 0; i < csi2->nports; i++) {
++		struct v4l2_fwnode_endpoint vep = {
++			.bus_type = V4L2_MBUS_CSI2_DPHY
++		};
++		struct sensor_async_subdev *s_asd;
++		struct fwnode_handle *ep;
++
++		ep = fwnode_graph_get_endpoint_by_id(dev_fwnode(dev), i, 0,
++						FWNODE_GRAPH_ENDPOINT_NEXT);
++		if (!ep)
++			continue;
++
++		ret = v4l2_fwnode_endpoint_parse(ep, &vep);
++		if (ret)
++			goto err_parse;
++
++		s_asd = v4l2_async_nf_add_fwnode_remote(&isys->notifier, ep,
++							struct
++							sensor_async_subdev);
++		if (IS_ERR(s_asd)) {
++			ret = PTR_ERR(s_asd);
++			goto err_parse;
++		}
++
++		s_asd->csi2.port = vep.base.port;
++		s_asd->csi2.nlanes = vep.bus.mipi_csi2.num_data_lanes;
++
++		fwnode_handle_put(ep);
++
++		continue;
++
++err_parse:
++		fwnode_handle_put(ep);
++		return ret;
++	}
++
++	if (list_empty(&isys->notifier.waiting_list)) {
++		/* isys probe could continue with async subdevs missing */
++		dev_warn(&isys->adev->dev, "no subdev found in graph\n");
++		return 0;
++	}
++
++	isys->notifier.ops = &isys_async_ops;
++	ret = v4l2_async_nf_register(&isys->notifier);
++	if (ret) {
++		dev_err(&isys->adev->dev,
++			"failed to register async notifier : %d\n", ret);
++		v4l2_async_nf_cleanup(&isys->notifier);
++	}
++
++	return ret;
++}
++#endif
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0) || LINUX_VERSION_CODE == KERNEL_VERSION(5, 15, 71)
+ static void isys_notifier_cleanup(struct ipu_isys *isys)
+ {
+ 	v4l2_async_nf_unregister(&isys->notifier);
+diff --git a/drivers/media/pci/intel/ipu6/ipu6-isys-phy.c b/drivers/media/pci/intel/ipu6/ipu6-isys-phy.c
+index c26780106..d2f4f74b6 100644
+--- a/drivers/media/pci/intel/ipu6/ipu6-isys-phy.c
++++ b/drivers/media/pci/intel/ipu6/ipu6-isys-phy.c
+@@ -504,11 +504,16 @@ int ipu6_isys_phy_common_init(struct ipu_isys *isys)
+ 	struct ipu_bus_device *adev = to_ipu_bus_device(&isys->adev->dev);
+ 	struct ipu_device *isp = adev->isp;
+ 	void __iomem *isp_base = isp->base;
+-	struct v4l2_async_subdev *asd;
+ 	struct sensor_async_subdev *s_asd;
+ 	unsigned int i;
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
++	struct v4l2_async_subdev *asd;
+ 	list_for_each_entry(asd, &isys->notifier.asd_list, asd_list) {
++#else
++	struct v4l2_async_connection *asd;
++	list_for_each_entry(asd, &isys->notifier.done_list, asc_entry) {
++#endif
+ 		s_asd = container_of(asd, struct sensor_async_subdev, asd);
+ 		phy_id = s_asd->csi2.port / 4;
+ 		phy_base = isp_base + IPU6_ISYS_PHY_BASE(phy_id);
+@@ -562,12 +567,17 @@ int ipu6_isys_phy_config(struct ipu_isys *isys)
+ 	struct ipu_device *isp = adev->isp;
+ 	void __iomem *isp_base = isp->base;
+ 	const struct phy_reg **phy_config_regs;
+-	struct v4l2_async_subdev *asd;
+ 	struct sensor_async_subdev *s_asd;
+ 	struct ipu_isys_csi2_config cfg;
+ 	int i;
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
++	struct v4l2_async_subdev *asd;
+ 	list_for_each_entry(asd, &isys->notifier.asd_list, asd_list) {
++#else
++	struct v4l2_async_connection *asd;
++	list_for_each_entry(asd, &isys->notifier.done_list, asc_entry) {
++#endif
+ 		s_asd = container_of(asd, struct sensor_async_subdev, asd);
+ 		cfg.port = s_asd->csi2.port;
+ 		cfg.nlanes = s_asd->csi2.nlanes;
+diff --git a/include/media/ipu-isys.h b/include/media/ipu-isys.h
+index b75febf80..0b0caab1b 100644
+--- a/include/media/ipu-isys.h
++++ b/include/media/ipu-isys.h
+@@ -6,6 +6,7 @@
+ 
+ #include <linux/i2c.h>
+ #include <linux/clkdev.h>
++#include <linux/version.h>
+ #include <media/v4l2-async.h>
+ 
+ #define IPU_ISYS_MAX_CSI2_LANES		4
+@@ -37,7 +38,11 @@ struct ipu_isys_subdev_pdata {
+ };
+ 
+ struct sensor_async_subdev {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+ 	struct v4l2_async_subdev asd;
++#else
++	struct v4l2_async_connection asd;
++#endif
+ 	struct ipu_isys_csi2_config csi2;
+ };
+ 
+-- 
+2.40.1
+

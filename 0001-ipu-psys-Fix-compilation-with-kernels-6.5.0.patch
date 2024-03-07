@@ -1,0 +1,32 @@
+From c93409cfdb39fb13e2f92bae6314a1403496e8e0 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Mon, 28 Aug 2023 15:19:16 +0200
+Subject: [PATCH] ipu-psys: Fix compilation with kernels >= 6.5.0
+
+Kernel 6.5 has removed the last parameter from
+get_user_pages(). Adjust the code accordingly.
+
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/media/pci/intel/ipu-psys.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/media/pci/intel/ipu-psys.c b/drivers/media/pci/intel/ipu-psys.c
+index 2e40849..f1a0ab4 100644
+--- a/drivers/media/pci/intel/ipu-psys.c
++++ b/drivers/media/pci/intel/ipu-psys.c
+@@ -218,7 +218,11 @@ static int ipu_psys_get_userpages(struct ipu_dma_buf_attach *attach)
+ #else
+ 				    FOLL_WRITE,
+ #endif
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0)
+ 				    pages, NULL);
++#else
++				    pages);
++#endif
+ 		if (nr < npages)
+ 			goto error_up_read;
+ 	}
+-- 
+2.41.0
+
