@@ -7,8 +7,8 @@
 %global ipu6_commitdate 20240226
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
-%global ivsc_commit 73a044d9633212fac54ea96cdd882ff5ab40573e
-%global ivsc_commitdate 20231109
+%global ivsc_commit a6dccbbf5a955489d20d996234b6ebb481183ed7
+%global ivsc_commitdate 20240416
 %global ivsc_shortcommit %(c=%{ivsc_commit}; echo ${c:0:7})
 
 %global prjname intel-ipu6
@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        12.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        13.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 
 URL:            https://github.com/intel
@@ -34,8 +34,6 @@ Patch13:        4.patch
 Patch14:        5.patch
 Patch15:        6.patch
 Patch16:        0001-Skip-ljca-modules-for-the-kernel-6.7.patch
-# https://github.com/intel/ivsc-driver/pull/44
-Patch17:        vsc-44.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -71,9 +69,6 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 %patch 16 -p1
 )
 
-(cd ivsc-driver-%{ivsc_commit}
-%patch 17 -p1
-)
 
 cp -Rp ivsc-driver-%{ivsc_commit}/backport-include ipu6-drivers-%{ipu6_commit}/
 cp -Rp ivsc-driver-%{ivsc_commit}/drivers ipu6-drivers-%{ipu6_commit}/
@@ -109,6 +104,10 @@ done
 
 
 %changelog
+* Fri Apr 19 2024 Kate Hsuan <hpa@redhat.cpm> - 0.0-13.20240226gitfb4c170
+- Update ivsc to commit a6dccbbf5a955489d20d996234b6ebb481183ed7
+- ivsc: Update mei_dev.h for kernel >= 6.8
+
 * Thu Mar 07 2024 Kate Hsuan <hpa@redhat.com> - 0.0-12.20240226gitfb4c170
 - Fix for kernel >= 6.7
 - Fix and improve ipu6_isys probe()
