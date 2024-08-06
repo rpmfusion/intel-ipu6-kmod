@@ -1,0 +1,4 @@
+# these are all normal for the generated [a]kmod pkgs
+addFilter("W: no-documentation")
+addFilter("E: spelling-error")
+addFilter("E: no-binary")
