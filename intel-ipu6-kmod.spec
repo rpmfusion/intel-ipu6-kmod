@@ -3,8 +3,8 @@
 %global debug_package %{nil}
 %endif
 
-%global ipu6_commit fb4c17019c9ede9412065d61ecd352cdf1c0e7af
-%global ipu6_commitdate 20240226
+%global ipu6_commit aecec2aaef069fea56aa921cf5d7e449bb7a0b82
+%global ipu6_commitdate 20240624
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
 %global ivsc_commit a6dccbbf5a955489d20d996234b6ebb481183ed7
@@ -16,24 +16,23 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        12.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        15.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
+URL:            https://github.com/intel/ipu6-drivers
 
-URL:            https://github.com/intel
 Source0:        %{url}/ivsc-driver/archive/%{ivsc_commit}/ivsc-driver-%{ivsc_shortcommit}.tar.gz
 Source1:        %{url}/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_shortcommit}.tar.gz
 
-
 # Patches
-# https://github.com/intel/ipu6-drivers/pull/213
-# https://github.com/intel/ipu6-drivers/pull/214
-Patch10:        1.patch
-Patch11:        2.patch
-Patch12:        3.patch
-Patch13:        4.patch
-Patch14:        5.patch
-Patch15:        6.patch
-Patch16:        0001-Skip-ljca-modules-for-the-kernel-6.7.patch
+# https://github.com/intel/ipu6-drivers/pull/239
+Patch1:         0001-gc5035-Fix-compilation-with-kernels-6.8.patch
+# https://github.com/intel/ipu6-drivers/pull/242
+Patch2:         0002-media-ipu6-Fix-compilation-with-kernels-6.10.patch
+# https://github.com/intel/ipu6-drivers/pull/243
+Patch3:         0003-Makefile-prefix-ipu6-modules-with-icamera-instead-of.patch
+
+# Downstream / Fedora specific patches
+Patch101:       0101-Makefile-Adjust-which-modules-to-build-for-which-ker.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -44,11 +43,8 @@ BuildRequires:  kmodtool
 %{expand:%(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
-This enables intel IPU6 image processor. The package includes Intel IPU6 and iVSC drivers
-The source can be found from the following URL.
-https://github.com/intel/ipu6-drivers
-
-This package contains the kmod module for %{prjname}.
+This enables intel IPU6 image processor. The package includes Intel IPU6
+and iVSC drivers.
 
 
 %prep
@@ -60,13 +56,10 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 
 %setup -q -c -a 1
 (cd ipu6-drivers-%{ipu6_commit}
-%patch 10 -p1
-%patch 11 -p1
-%patch 12 -p1
-%patch 13 -p1
-%patch 14 -p1
-%patch 15 -p1
-%patch 16 -p1
+%patch 1 -p1
+%patch 2 -p1
+%patch 3 -p1
+%patch 101 -p1
 )
 
 
@@ -86,32 +79,38 @@ done
 
 %install
 for kernel_version in %{?kernel_versions}; do
-  mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/hi556.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/hi556.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/hm11b1.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/hm11b1.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/hm2170.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/hm2170.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/ov01a10.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/ov01a10.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/ov01a1s.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/ov01a1s.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/ov02c10.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/ov02c10.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/ov2740.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/ov2740.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/intel-ipu6-isys.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/intel-ipu6-isys.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/intel-ipu6-psys.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/intel-ipu6-psys.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/intel-ipu6.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/intel-ipu6.ko
-  install -D -m 755 _kmod_build_${kernel_version%%___*}/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}
-  chmod a+x %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/*.ko
+  mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/
+  mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/
+  install -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/
+  install -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/
+  if [ -f _kmod_build_${kernel_version%%___*}/intel_vsc.ko* ]; then
+    install -m 755 _kmod_build_${kernel_version%%___*}/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}
+  fi
 done
 %{?akmod_install}
 
 
 %changelog
-* Fri Apr 19 2024 Kate Hsuan <hpa@redhat.cpm> - 0.0-12.20240226gitfb4c170
+* Fri Aug 02 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-15.20240624gitaecec2a
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
+* Thu Jun 27 2024 Hans de Goede <hdegoede@redhat.com> - 0.0-14.20240624gitaecec2a
+- Updated ipu6-driver to commit aecec2aaef069fea56aa921cf5d7e449bb7a0b82
+- Adjust which modules are build to not conflict with upstreamed ivsc,
+  ov01a10, ov2740 and hi556 drivers
+- Fix building against 6.10 kernels
+
+* Fri Apr 19 2024 Kate Hsuan <hpa@redhat.cpm> - 0.0-13.20240226gitfb4c170
 - Update ivsc to commit a6dccbbf5a955489d20d996234b6ebb481183ed7
 - ivsc: Update mei_dev.h for kernel >= 6.8
 
-* Thu Mar 07 2024 Kate Hsuan <hpa@redhat.com> - 0.0-11.20240226gitfb4c170
+* Thu Mar 07 2024 Kate Hsuan <hpa@redhat.com> - 0.0-12.20240226gitfb4c170
 - Fix for kernel >= 6.7
 - Fix and improve ipu6_isys probe()
 - Skip ljca driver when the system runs the kernel >= 6.7
+
+* Sun Feb 04 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-11.20230622git8e41080
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
 
 * Sat Nov  4 2023 Hans de Goede <hdegoede@redhat.com> - 0.0-10.20230622git8e41080
 - Add "spi_vsc: Call acpi_dev_clear_dependencies()" patch to fix laptops
