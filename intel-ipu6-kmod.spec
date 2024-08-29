@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        15.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        16.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 URL:            https://github.com/intel/ipu6-drivers
 
@@ -30,6 +30,8 @@ Patch1:         0001-gc5035-Fix-compilation-with-kernels-6.8.patch
 Patch2:         0002-media-ipu6-Fix-compilation-with-kernels-6.10.patch
 # https://github.com/intel/ipu6-drivers/pull/243
 Patch3:         0003-Makefile-prefix-ipu6-modules-with-icamera-instead-of.patch
+# https://github.com/intel/ipu6-drivers/pull/261
+Patch4:         0004-fix-6.11-kernel.patch
 
 # Downstream / Fedora specific patches
 Patch101:       0101-Makefile-Adjust-which-modules-to-build-for-which-ker.patch
@@ -59,6 +61,7 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 %patch 1 -p1
 %patch 2 -p1
 %patch 3 -p1
+%patch 4 -p1
 %patch 101 -p1
 )
 
@@ -91,6 +94,9 @@ done
 
 
 %changelog
+* Thu Aug 29 2024 Hans de Goede <hdegoede@redhat.com> - 0.0-16.20240624gitaecec2a
+- Fix building against 6.11 kernels
+
 * Fri Aug 02 2024 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-15.20240624gitaecec2a
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
 
