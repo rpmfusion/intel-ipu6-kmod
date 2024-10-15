@@ -1,7 +1,7 @@
-From 2ea9ccd5fc964251da4c4c47abd7321ce868e478 Mon Sep 17 00:00:00 2001
+From 3ddee5543a8caa4bb716fd0ff815d52b0d09bbb1 Mon Sep 17 00:00:00 2001
 From: Hans de Goede <hdegoede@redhat.com>
 Date: Mon, 10 Jun 2024 19:30:48 +0200
-Subject: [PATCH 3/4] Makefile: prefix ipu6 modules with icamera- instead of
+Subject: [PATCH 3/6] Makefile: prefix ipu6 modules with icamera- instead of
  intel-
 
 Now that IPU6 isys support has landed upstream, using an auxbus approach
@@ -80,5 +80,5 @@ index 23f8cdba4..92cd9fe1b 100644
  ccflags-y += -I$(srcpath)/$(src)/../../../../../include/
  ccflags-y += -I$(srcpath)/$(src)/../
 -- 
-2.45.1
+2.47.0
 

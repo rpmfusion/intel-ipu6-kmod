@@ -1,7 +1,7 @@
 From 1e0c448f48540e08f621b324627feca927eb75fe Mon Sep 17 00:00:00 2001
 From: Hans de Goede <hdegoede@redhat.com>
 Date: Mon, 10 Jun 2024 13:41:16 +0200
-Subject: [PATCH 1/4] gc5035: Fix compilation with kernels >= 6.8
+Subject: [PATCH 1/6] gc5035: Fix compilation with kernels >= 6.8
 
 For some reason the gc5035 driver has been disabled for kernels >= 6.8,
 but it is not upstream yet.
@@ -92,5 +92,5 @@ index 16bbd4845..e825dfa7d 100644
  	if (ret) {
  		dev_err_probe(dev, ret, "Failed to initialize controls\n");
 -- 
-2.45.1
+2.47.0
 
