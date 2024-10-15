@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        16.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        17.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 URL:            https://github.com/intel/ipu6-drivers
 
@@ -31,7 +31,10 @@ Patch2:         0002-media-ipu6-Fix-compilation-with-kernels-6.10.patch
 # https://github.com/intel/ipu6-drivers/pull/243
 Patch3:         0003-Makefile-prefix-ipu6-modules-with-icamera-instead-of.patch
 # https://github.com/intel/ipu6-drivers/pull/261
-Patch4:         0004-fix-6.11-kernel.patch
+Patch4:         0004-media-ipu6-Fix-compilation-with-kernels-6.11.patch
+# https://github.com/intel/ipu6-drivers/pull/283
+Patch5:         0005-media-ipu6-Fix-compilation-with-kernels-6.12-move-as.patch
+Patch6:         0006-media-ipu6-Fix-compilation-with-kernels-6.12-Finally.patch
 
 # Downstream / Fedora specific patches
 Patch101:       0101-Makefile-Adjust-which-modules-to-build-for-which-ker.patch
@@ -62,6 +65,8 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 %patch 2 -p1
 %patch 3 -p1
 %patch 4 -p1
+%patch 5 -p1
+%patch 6 -p1
 %patch 101 -p1
 )
 
@@ -94,6 +99,9 @@ done
 
 
 %changelog
+* Tue Oct 15 2024 Hans de Goede <hdegoede@redhat.com> - 0.0-17.20240624gitaecec2a
+- Fix building against 6.12 kernels
+
 * Thu Aug 29 2024 Hans de Goede <hdegoede@redhat.com> - 0.0-16.20240624gitaecec2a
 - Fix building against 6.11 kernels
 
