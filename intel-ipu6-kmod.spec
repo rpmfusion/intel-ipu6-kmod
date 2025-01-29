@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        17.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        18.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPLv2+
 URL:            https://github.com/intel/ipu6-drivers
 
@@ -99,6 +99,9 @@ done
 
 
 %changelog
+* Wed Jan 29 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-18.20240624gitaecec2a
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
 * Tue Oct 15 2024 Hans de Goede <hdegoede@redhat.com> - 0.0-17.20240624gitaecec2a
 - Fix building against 6.12 kernels
 
