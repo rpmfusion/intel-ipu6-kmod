@@ -3,41 +3,48 @@
 %global debug_package %{nil}
 %endif
 
-%global ipu6_commit aecec2aaef069fea56aa921cf5d7e449bb7a0b82
-%global ipu6_commitdate 20240624
+%global ipu6_commit 13c466ebdaaa0578e82bf3039b63eb0b3f472b72
+%global ipu6_commitdate 20250115
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
-%global ivsc_commit a6dccbbf5a955489d20d996234b6ebb481183ed7
-%global ivsc_commitdate 20240416
-%global ivsc_shortcommit %(c=%{ivsc_commit}; echo ${c:0:7})
+%global usbio_commit 450939ff5f8af733bc89c564603222a4d420acf3
+%global usbio_commitdate 20241210
+%global usbio_shortcommit %(c=%{usbio_commit}; echo ${c:0:7})
 
 %global prjname intel-ipu6
 
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        18.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
-License:        GPLv2+
+Release:        19.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+License:        GPL-2.0-or-later
 URL:            https://github.com/intel/ipu6-drivers
 
-Source0:        %{url}/ivsc-driver/archive/%{ivsc_commit}/ivsc-driver-%{ivsc_shortcommit}.tar.gz
-Source1:        %{url}/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_shortcommit}.tar.gz
+Source0:        https://github.com/intel/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_shortcommit}.tar.gz
+Source1:        https://github.com/intel/usbio-drivers/archive/%{usbio_commit}/usbio-drivers-%{usbio_shortcommit}.tar.gz
 
 # Patches
-# https://github.com/intel/ipu6-drivers/pull/239
-Patch1:         0001-gc5035-Fix-compilation-with-kernels-6.8.patch
-# https://github.com/intel/ipu6-drivers/pull/242
-Patch2:         0002-media-ipu6-Fix-compilation-with-kernels-6.10.patch
-# https://github.com/intel/ipu6-drivers/pull/243
-Patch3:         0003-Makefile-prefix-ipu6-modules-with-icamera-instead-of.patch
-# https://github.com/intel/ipu6-drivers/pull/261
-Patch4:         0004-media-ipu6-Fix-compilation-with-kernels-6.11.patch
-# https://github.com/intel/ipu6-drivers/pull/283
-Patch5:         0005-media-ipu6-Fix-compilation-with-kernels-6.12-move-as.patch
-Patch6:         0006-media-ipu6-Fix-compilation-with-kernels-6.12-Finally.patch
+# https://github.com/intel/ipu6-drivers/pull/322
+Patch1:         0001-Makefile-Switch-sensor-driver-symbols-from-CONFIG_VI.patch
+Patch2:         0002-Makefile-Re-enable-gc5035-compilation-with-kernels-6.patch
+Patch3:         0003-Makefile-Do-not-build-hi556-driver-with-kernels-6.10.patch
+Patch4:         0004-Makefile-Do-not-build-ov01a10-driver-with-kernels-6..patch
+# https://github.com/intel/ipu6-drivers/pull/321
+Patch5:         0005-media-ipu6-Fix-out-of-tree-builds.patch
+Patch6:         0006-media-ipu6-Fix-building-with-kernel-6.13.patch
+Patch7:         0007-Modify-0001-v6.10-IPU6-headers-used-by-PSYS.patch-fo.patch
+# https://github.com/intel/ipu6-drivers/pull/324
+Patch8:         0008-ipu6-psys-Adjust-DMA-code-for-ipu6-bus-DMA-changes-i.patch
+Patch9:         0009-Add-ipu6-dma.h-to-0001-v6.10-IPU6-headers-used-by-PS.patch
+
+# https://github.com/intel/usbio-drivers/pull/33
+Patch10:        0010-usbio-Fix-GPIO-and-I2C-driver-modaliases.patch
+# https://github.com/intel/usbio-drivers/pull/34
+Patch11:        0011-usbio-Fix-I2C-max-transfer-size.patch
+Patch12:        0012-usbio-Use-MAX_PAYLOAD_BSIZE-in-usbio_bulk_write.patch
 
 # Downstream / Fedora specific patches
-Patch101:       0101-Makefile-Adjust-which-modules-to-build-for-which-ker.patch
+Patch101:       0101-Fedora-local-mod-integrate-usbio-drivers-within-ipu6.patch
 
 BuildRequires:  gcc
 BuildRequires:  elfutils-libelf-devel
@@ -67,13 +74,20 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 %patch 4 -p1
 %patch 5 -p1
 %patch 6 -p1
+%patch 7 -p1
+%patch 8 -p1
+%patch 9 -p1
 %patch 101 -p1
+patch -p1 < patches/0001-v6.10-IPU6-headers-used-by-PSYS.patch
+)
+(cd usbio-drivers-%{usbio_commit}
+%patch 10 -p1
+%patch 11 -p1
+%patch 12 -p1
 )
 
-
-cp -Rp ivsc-driver-%{ivsc_commit}/backport-include ipu6-drivers-%{ipu6_commit}/
-cp -Rp ivsc-driver-%{ivsc_commit}/drivers ipu6-drivers-%{ipu6_commit}/
-cp -Rp ivsc-driver-%{ivsc_commit}/include ipu6-drivers-%{ipu6_commit}/
+cp -Rp usbio-drivers-%{usbio_commit}/drivers ipu6-drivers-%{ipu6_commit}/
+cp -Rp usbio-drivers-%{usbio_commit}/include ipu6-drivers-%{ipu6_commit}/
 
 for kernel_version in %{?kernel_versions} ; do
   cp -a ipu6-drivers-%{ipu6_commit}/ _kmod_build_${kernel_version%%___*}
@@ -88,17 +102,22 @@ done
 %install
 for kernel_version in %{?kernel_versions}; do
   mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/
-  mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/
+  mkdir -p %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/psys/
   install -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/i2c/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/i2c/
-  install -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/
-  if [ -f _kmod_build_${kernel_version%%___*}/intel_vsc.ko* ]; then
-    install -m 755 _kmod_build_${kernel_version%%___*}/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}
-  fi
+  install -m 755 _kmod_build_${kernel_version%%___*}/drivers/media/pci/intel/ipu6/psys/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}/drivers/media/pci/intel/ipu6/psys/
+  install -m 755 _kmod_build_${kernel_version%%___*}/*.ko %{buildroot}%{kmodinstdir_prefix}/${kernel_version%%___*}/%{kmodinstdir_postfix}
 done
 %{?akmod_install}
 
 
 %changelog
+* Thu Jan 30 2025 Hans de Goede <hdegoede@redhat.com> - 0.0-19.20250115git13c466e
+- Update to latest upstream
+- Drop iVSC drivers, these are part of the mainline kernel now
+- Integrate USBIO drivers for IO chip used on Meteor Lake models
+- Now only builds psys and always uses isys from mainline
+- Fix building against 6.13 kernels
+
 * Wed Jan 29 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-18.20240624gitaecec2a
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
 
