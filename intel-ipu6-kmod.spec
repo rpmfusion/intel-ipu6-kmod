@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        19.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        20.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPL-2.0-or-later
 URL:            https://github.com/intel/ipu6-drivers
 
@@ -36,12 +36,15 @@ Patch7:         0007-Modify-0001-v6.10-IPU6-headers-used-by-PSYS.patch-fo.patch
 # https://github.com/intel/ipu6-drivers/pull/324
 Patch8:         0008-ipu6-psys-Adjust-DMA-code-for-ipu6-bus-DMA-changes-i.patch
 Patch9:         0009-Add-ipu6-dma.h-to-0001-v6.10-IPU6-headers-used-by-PS.patch
+# https://github.com/intel/ipu6-drivers/pull/327
+Patch10:        0010-psys-Do-not-skipping-registering-ipu_psys_bus-for-ke.patch
+Patch11:        0011-psys-Use-cdev_device_add-for-dev-ipu-psys0.patch
 
 # https://github.com/intel/usbio-drivers/pull/33
-Patch10:        0010-usbio-Fix-GPIO-and-I2C-driver-modaliases.patch
+Patch20:        0010-usbio-Fix-GPIO-and-I2C-driver-modaliases.patch
 # https://github.com/intel/usbio-drivers/pull/34
-Patch11:        0011-usbio-Fix-I2C-max-transfer-size.patch
-Patch12:        0012-usbio-Use-MAX_PAYLOAD_BSIZE-in-usbio_bulk_write.patch
+Patch21:        0011-usbio-Fix-I2C-max-transfer-size.patch
+Patch22:        0012-usbio-Use-MAX_PAYLOAD_BSIZE-in-usbio_bulk_write.patch
 
 # Downstream / Fedora specific patches
 Patch101:       0101-Fedora-local-mod-integrate-usbio-drivers-within-ipu6.patch
@@ -77,13 +80,15 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 %patch 7 -p1
 %patch 8 -p1
 %patch 9 -p1
+%patch 10 -p1
+%patch 11 -p1
 %patch 101 -p1
 patch -p1 < patches/0001-v6.10-IPU6-headers-used-by-PSYS.patch
 )
 (cd usbio-drivers-%{usbio_commit}
-%patch 10 -p1
-%patch 11 -p1
-%patch 12 -p1
+%patch 20 -p1
+%patch 21 -p1
+%patch 22 -p1
 )
 
 cp -Rp usbio-drivers-%{usbio_commit}/drivers ipu6-drivers-%{ipu6_commit}/
@@ -111,6 +116,9 @@ done
 
 
 %changelog
+* Wed Feb  5 2025 Hans de Goede <hdegoede@redhat.com> - 0.0-20.20250115git13c466e
+- Fix bug causing udev to not properly enumerate the /dev/ipu-psys0 device
+
 * Thu Jan 30 2025 Hans de Goede <hdegoede@redhat.com> - 0.0-19.20250115git13c466e
 - Update to latest upstream
 - Drop iVSC drivers, these are part of the mainline kernel now
