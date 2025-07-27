@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        20.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        21.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPL-2.0-or-later
 URL:            https://github.com/intel/ipu6-drivers
 
@@ -116,6 +116,9 @@ done
 
 
 %changelog
+* Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-21.20250115git13c466e
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
+
 * Wed Feb  5 2025 Hans de Goede <hdegoede@redhat.com> - 0.0-20.20250115git13c466e
 - Fix bug causing udev to not properly enumerate the /dev/ipu-psys0 device
 
