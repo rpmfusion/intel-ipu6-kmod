@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        22.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        23.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPL-2.0-or-later
 URL:            https://github.com/intel/ipu6-drivers
 
@@ -33,6 +33,8 @@ Patch21:        0011-usbio-Fix-I2C-max-transfer-size.patch
 Patch22:        0012-usbio-Use-MAX_PAYLOAD_BSIZE-in-usbio_bulk_write.patch
 # https://github.com/intel/usbio-drivers/pull/38 (for the kernel >=6.17)
 Patch23:        23-38.patch
+# https://github.com/intel/usbio-drivers/pull/39
+Patch24:        0011-include-linux-mfd-usbio-Fix-missing-prototypes.patch
 
 # Downstream / Fedora specific patches
 Patch101:       0101-Fedora-local-mod-integrate-usbio-drivers-within-ipu6.patch
@@ -68,6 +70,8 @@ patch -p1 < patches/0001-v6.10-IPU6-headers-used-by-PSYS.patch
 %patch 20 -p1
 %patch 21 -p1
 %patch 22 -p1
+%patch 23 -p1
+%patch 24 -p1
 )
 
 cp -Rp usbio-drivers-%{usbio_commit}/drivers ipu6-drivers-%{ipu6_commit}/
@@ -95,6 +99,13 @@ done
 
 
 %changelog
+* Tue Sep 23 2025 Kate Hsuan <hpa@redhat.com> - 0.0-23.20250909git4bb5b4d
+- Fix usbio-drivers build issues
+
+* Thu Sep 18 2025 Kate Husan <hpa@redhat.com> - 0.0-22.20250909git4bb5b4d
+- ipu6-drivers: update to the upstream commit 4bb5b4d
+- usbio-drivers: update to the upstream commit 4fb690c6
+
 * Sun Jul 27 2025 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-21.20250115git13c466e
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
 
