@@ -1,0 +1,113 @@
+From 7731d39b4f91c7f650726d24869e1a672cf6dc44 Mon Sep 17 00:00:00 2001
+From: Hans de Goede <hansg@kernel.org>
+Date: Tue, 28 Oct 2025 11:53:10 +0100
+Subject: [PATCH] media: i2c: ov01a1s: Change output size to 1288x800
+
+Change the output size to 1288x800 to match the maximum output width
+of the mainline ov01a1s support from (the mainline code keeps a 4x4 border
+reserved to be able to shift the window around to keep the Bayer pattern
+unchanged when doing flipping):
+
+https://lore.kernel.org/linux-media/20251014174033.20534-1-hansg@kernel.org/
+
+and to change the height to be a multiple of 4, like the mainline support,
+since the RGBI Bayer patern on this sensor repeats every 4 lines.
+
+This requires a matching change to the following 2 files in ipu6-camera-hal:
+
+config/linux/ipu6/sensors/ov01a1s-uf.xml
+config/linux/ipu6/gcss/graph_settings_ov01a1s.xml
+
+I will submit a separate pull-request for the matching ipu6-camera-hal
+changes.
+
+Merging this change as well as the matching ipu6-camera-hal changes ensures
+that the ipu6-camera-hal + icamerasrc solution will keep working once
+ov01a1s support lands in the mainline kernel.
+
+This has been tested on a Dell Latitude 9420.
+
+Signed-off-by: Hans de Goede <hansg@kernel.org>
+---
+ drivers/media/i2c/ov01a1s.c | 29 ++++++++++-------------------
+ 1 file changed, 10 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/media/i2c/ov01a1s.c b/drivers/media/i2c/ov01a1s.c
+index 97fae53..b8bd9ce 100644
+--- a/drivers/media/i2c/ov01a1s.c
++++ b/drivers/media/i2c/ov01a1s.c
+@@ -124,7 +124,7 @@ struct ov01a1s_mode {
+ static const struct ov01a1s_reg mipi_data_rate_720mbps[] = {
+ };
+ 
+-static const struct ov01a1s_reg sensor_1296x800_setting[] = {
++static const struct ov01a1s_reg sensor_1288x800_setting[] = {
+ 	{0x0103, 0x01},
+ 	{0x0302, 0x00},
+ 	{0x0303, 0x06},
+@@ -198,22 +198,22 @@ static const struct ov01a1s_reg sensor_1296x800_setting[] = {
+ 	{0x3806, 0x03},
+ 	{0x3807, 0x2f},
+ 	{0x3808, 0x05},
+-	{0x3809, 0x00},
++	{0x3809, 0x08},
+ 	{0x380a, 0x03},
+-	{0x380b, 0x1e},
++	{0x380b, 0x20},
+ 	{0x380c, 0x05},
+ 	{0x380d, 0xd0},
+ 	{0x380e, 0x03},
+ 	{0x380f, 0x80},
+ 	{0x3810, 0x00},
+-	{0x3811, 0x09},
++	{0x3811, 0x08},
+ 	{0x3812, 0x00},
+-	{0x3813, 0x08},
++	{0x3813, 0x09},
+ 	{0x3814, 0x01},
+ 	{0x3815, 0x01},
+ 	{0x3816, 0x01},
+ 	{0x3817, 0x01},
+-	{0x3820, 0xa8},
++	{0x3820, 0x88},
+ 	{0x3822, 0x03},
+ 	{0x3832, 0x28},
+ 	{0x3833, 0x10},
+@@ -256,15 +256,6 @@ static const struct ov01a1s_reg sensor_1296x800_setting[] = {
+ 	{0x4837, 0x14},
+ 	{0x0305, 0xf4},
+ 	{0x0325, 0xc2},
+-	{0x3808, 0x05},
+-	{0x3809, 0x10},
+-	{0x380a, 0x03},
+-	{0x380b, 0x1e},
+-	{0x3810, 0x00},
+-	{0x3811, 0x00},
+-	{0x3812, 0x00},
+-	{0x3813, 0x09},
+-	{0x3820, 0x88},
+ 	{0x373d, 0x24},
+ };
+ 
+@@ -291,14 +282,14 @@ static const struct ov01a1s_link_freq_config link_freq_configs[] = {
+ 
+ static const struct ov01a1s_mode supported_modes[] = {
+ 	{
+-		.width = 1296,
+-		.height = 798,
++		.width = 1288,
++		.height = 800,
+ 		.hts = 1488,
+ 		.vts_def = OV01A1S_VTS_DEF,
+ 		.vts_min = OV01A1S_VTS_MIN,
+ 		.reg_list = {
+-			.num_of_regs = ARRAY_SIZE(sensor_1296x800_setting),
+-			.regs = sensor_1296x800_setting,
++			.num_of_regs = ARRAY_SIZE(sensor_1288x800_setting),
++			.regs = sensor_1288x800_setting,
+ 		},
+ 		.link_freq_index = OV01A1S_LINK_FREQ_400MHZ_INDEX,
+ 	},
+-- 
+2.51.1
+

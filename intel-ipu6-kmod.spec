@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        23.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        24.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPL-2.0-or-later
 URL:            https://github.com/intel/ipu6-drivers
 
@@ -25,6 +25,8 @@ Source1:        https://github.com/intel/usbio-drivers/archive/%{usbio_commit}/u
 
 # https://github.com/intel/ipu6-drivers/pull/387
 Patch01:        01-387.patch
+# https://github.com/intel/ipu6-drivers/pull/395
+Patch02:        0001-media-i2c-ov01a1s-Change-output-size-to-1288x800.patch
 
 # https://github.com/intel/usbio-drivers/pull/33
 Patch20:        0010-usbio-Fix-GPIO-and-I2C-driver-modaliases.patch
@@ -63,6 +65,7 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 (cd ipu6-drivers-%{ipu6_commit}
 %patch 101 -p1
 %patch 01 -p1
+%patch 02 -p1
 patch -p1 < patches/0001-v6.10-IPU6-headers-used-by-PSYS.patch
 )
 
@@ -99,6 +102,9 @@ done
 
 
 %changelog
+* Wed Nov 12 2025 Kate Hsuan <hpa@redhat.com> - 0.0-24.20250909git4bb5b4d
+- Change the output size of ov01a1s to 1288x800
+
 * Tue Sep 23 2025 Kate Hsuan <hpa@redhat.com> - 0.0-23.20250909git4bb5b4d
 - Fix usbio-drivers build issues
 
