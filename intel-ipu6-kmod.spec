@@ -16,7 +16,7 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        24.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        25.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPL-2.0-or-later
 URL:            https://github.com/intel/ipu6-drivers
 
@@ -102,6 +102,9 @@ done
 
 
 %changelog
+* Mon Feb 02 2026 RPM Fusion Release Engineering <sergiomb@rpmfusion.org> - 0.0-25.20250909git4bb5b4d
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
+
 * Wed Nov 12 2025 Kate Hsuan <hpa@redhat.com> - 0.0-24.20250909git4bb5b4d
 - Change the output size of ov01a1s to 1288x800
 
