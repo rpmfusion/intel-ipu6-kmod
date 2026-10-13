@@ -3,8 +3,8 @@
 %global debug_package %{nil}
 %endif
 
-%global ipu6_commit 4bb5b4d8128fbf7f4730cd364a8f7fc13a0ef65b
-%global ipu6_commitdate 20250909
+%global ipu6_commit 71bddb5158fb7f0bd244ad7aa6b2efab024531a7
+%global ipu6_commitdate 20260819
 %global ipu6_shortcommit %(c=%{ipu6_commit}; echo ${c:0:7})
 
 %global usbio_commit 4fb690c6d15a81c492954636c2db396cb700a119
@@ -16,17 +16,12 @@
 Name:           %{prjname}-kmod
 Summary:        Kernel module (kmod) for %{prjname}
 Version:        0.0
-Release:        26.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
+Release:        27.%{ipu6_commitdate}git%{ipu6_shortcommit}%{?dist}
 License:        GPL-2.0-or-later
 URL:            https://github.com/intel/ipu6-drivers
 
 Source0:        https://github.com/intel/ipu6-drivers/archive/%{ipu6_commit}/ipu6-drivers-%{ipu6_shortcommit}.tar.gz
 Source1:        https://github.com/intel/usbio-drivers/archive/%{usbio_commit}/usbio-drivers-%{usbio_shortcommit}.tar.gz
-
-# https://github.com/intel/ipu6-drivers/pull/387
-Patch01:        01-387.patch
-# https://github.com/intel/ipu6-drivers/pull/395
-Patch02:        0001-media-i2c-ov01a1s-Change-output-size-to-1288x800.patch
 
 # https://github.com/intel/usbio-drivers/pull/33
 Patch20:        0010-usbio-Fix-GPIO-and-I2C-driver-modaliases.patch
@@ -64,8 +59,6 @@ kmodtool  --target %{_target_cpu} --repo rpmfusion --kmodname %{prjname} %{?buil
 %setup -q -c -a 1
 (cd ipu6-drivers-%{ipu6_commit}
 %patch 101 -p1
-%patch 01 -p1
-%patch 02 -p1
 patch -p1 < patches/0001-v6.10-IPU6-headers-used-by-PSYS.patch
 )
 
@@ -102,6 +95,9 @@ done
 
 
 %changelog
+* Tue Oct 13 2026 Kate Hsuan <hpa@redhat.com> - 0.0-27.20260819git71bddb5
+- Update to the latest upstream commit
+
 * Sun Aug 02 2026 RPM Fusion Release Engineering <leigh123linux@rpmfusion.org> - 0.0-26.20250909git4bb5b4d
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_45_Mass_Rebuild
 
